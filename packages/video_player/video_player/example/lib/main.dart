@@ -498,6 +498,7 @@ class _PipBackgroundDemo extends StatefulWidget {
 class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
   late VideoPlayerController _controller;
   bool _pipSupported = false;
+  bool _autoEnterPip = false;
 
   @override
   void initState() {
@@ -607,10 +608,18 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                             : null,
                       ),
                       ElevatedButton.icon(
-                        icon: const Icon(Icons.auto_awesome),
-                        label: const Text('Auto-Enter PiP'),
+                        icon: Icon(_autoEnterPip
+                            ? Icons.auto_awesome
+                            : Icons.auto_awesome_outlined),
+                        label: Text(_autoEnterPip
+                            ? 'Disable Auto-PiP'
+                            : 'Enable Auto-PiP'),
                         onPressed: _pipSupported
-                            ? () => _controller.setAutoEnterPip(true)
+                            ? () {
+                                final newValue = !_autoEnterPip;
+                                _controller.setAutoEnterPip(newValue);
+                                setState(() => _autoEnterPip = newValue);
+                              }
                             : null,
                       ),
                     ],
