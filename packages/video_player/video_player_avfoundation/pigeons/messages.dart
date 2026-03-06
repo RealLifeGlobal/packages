@@ -56,6 +56,14 @@ class MediaSelectionAudioTrackData {
   String? commonMetadataTitle;
 }
 
+class PlatformMediaInfo {
+  PlatformMediaInfo({required this.title});
+  String title;
+  String? artist;
+  String? artworkUrl;
+  int? durationMs;
+}
+
 @HostApi()
 abstract class AVFoundationVideoPlayerApi {
   @ObjCSelector('initialize')
@@ -71,6 +79,18 @@ abstract class AVFoundationVideoPlayerApi {
   void setMixWithOthers(bool mixWithOthers);
   @ObjCSelector('fileURLForAssetWithName:package:')
   String? getAssetUrl(String asset, String? package);
+  @ObjCSelector('isPipSupported')
+  bool isPipSupported();
+  @ObjCSelector('enterPipForPlayer:')
+  void enterPip(int playerId);
+  @ObjCSelector('exitPipForPlayer:')
+  void exitPip(int playerId);
+  @ObjCSelector('isPipActiveForPlayer:')
+  bool isPipActive(int playerId);
+  @ObjCSelector('enableBackgroundPlaybackForPlayer:mediaInfo:')
+  void enableBackgroundPlayback(int playerId, PlatformMediaInfo? mediaInfo);
+  @ObjCSelector('disableBackgroundPlaybackForPlayer:')
+  void disableBackgroundPlayback(int playerId);
 }
 
 @HostApi()

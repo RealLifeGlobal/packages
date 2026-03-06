@@ -9,10 +9,12 @@
 
 #import "./include/video_player_avfoundation/FVPAVFactory.h"
 #import "./include/video_player_avfoundation/FVPAssetProvider.h"
+#import "./include/video_player_avfoundation/FVPBackgroundAudioHandler.h"
 #import "./include/video_player_avfoundation/FVPDisplayLink.h"
 #import "./include/video_player_avfoundation/FVPEventBridge.h"
 #import "./include/video_player_avfoundation/FVPFrameUpdater.h"
 #import "./include/video_player_avfoundation/FVPNativeVideoViewFactory.h"
+#import "./include/video_player_avfoundation/FVPPipController.h"
 #import "./include/video_player_avfoundation/FVPTextureBasedVideoPlayer.h"
 #import "./include/video_player_avfoundation/FVPVideoPlayer.h"
 // Relative path is needed for messages.g.h. See
@@ -301,6 +303,70 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
     return nil;
   }
   return [NSURL fileURLWithPath:path].absoluteString;
+}
+
+- (nullable NSNumber *)isPipSupported:(FlutterError *_Nullable *_Nonnull)error {
+  return @([FVPPipController isPipSupported]);
+}
+
+- (void)enterPipForPlayer:(NSInteger)playerId error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
+  if (!player) {
+    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
+    return;
+  }
+  if (!player.pipController) {
+    player.pipController = [[FVPPipController alloc] initWithPlayerLayer:player.playerLayer];
+    player.pipController.delegate = player;
+  }
+  [player.pipController startPip];
+}
+
+- (void)exitPipForPlayer:(NSInteger)playerId error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
+  if (!player) {
+    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
+    return;
+  }
+  [player.pipController stopPip];
+}
+
+- (nullable NSNumber *)isPipActiveForPlayer:(NSInteger)playerId
+                                      error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
+  if (!player) {
+    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
+    return nil;
+  }
+  return @(player.pipController.isPipActive);
+}
+
+- (void)enableBackgroundPlaybackForPlayer:(NSInteger)playerId
+                                mediaInfo:(nullable FVPPlatformMediaInfo *)mediaInfo
+                                    error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
+  if (!player) {
+    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
+    return;
+  }
+  if (!player.backgroundAudioHandler) {
+    player.backgroundAudioHandler =
+        [[FVPBackgroundAudioHandler alloc] initWithPlayer:player.player];
+  }
+  [player.backgroundAudioHandler enableWithTitle:mediaInfo.title
+                                          artist:mediaInfo.artist
+                                      artworkUrl:mediaInfo.artworkUrl
+                                      durationMs:mediaInfo.durationMs];
+}
+
+- (void)disableBackgroundPlaybackForPlayer:(NSInteger)playerId
+                                     error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
+  if (!player) {
+    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
+    return;
+  }
+  [player.backgroundAudioHandler disable];
 }
 
 /// Returns the AVPlayerItem corresponding to the given player creation options.

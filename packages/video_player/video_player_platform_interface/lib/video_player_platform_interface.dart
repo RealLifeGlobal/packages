@@ -153,6 +153,50 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
   bool isAudioTrackSupportAvailable() {
     return false;
   }
+
+  /// Returns whether Picture-in-Picture mode is supported on this device.
+  Future<bool> isPipSupported() {
+    throw UnimplementedError('isPipSupported() has not been implemented.');
+  }
+
+  /// Enters Picture-in-Picture mode for the given player.
+  Future<void> enterPip(int playerId) {
+    throw UnimplementedError('enterPip() has not been implemented.');
+  }
+
+  /// Exits Picture-in-Picture mode for the given player.
+  Future<void> exitPip(int playerId) {
+    throw UnimplementedError('exitPip() has not been implemented.');
+  }
+
+  /// Returns whether Picture-in-Picture mode is currently active.
+  Future<bool> isPipActive(int playerId) {
+    throw UnimplementedError('isPipActive() has not been implemented.');
+  }
+
+  /// Sets whether PiP should be entered automatically when the app
+  /// goes to background (Android 12+ only).
+  Future<void> setAutoEnterPip(int playerId, bool enabled) {
+    throw UnimplementedError('setAutoEnterPip() has not been implemented.');
+  }
+
+  /// Enables background playback for the given player.
+  ///
+  /// When enabled, audio continues playing when the app is backgrounded.
+  /// On Android, this starts a foreground service with a media notification.
+  /// On iOS, this configures the audio session and sets up lock screen controls.
+  Future<void> enableBackgroundPlayback(int playerId, {MediaInfo? mediaInfo}) {
+    throw UnimplementedError(
+      'enableBackgroundPlayback() has not been implemented.',
+    );
+  }
+
+  /// Disables background playback for the given player.
+  Future<void> disableBackgroundPlayback(int playerId) {
+    throw UnimplementedError(
+      'disableBackgroundPlayback() has not been implemented.',
+    );
+  }
 }
 
 class _PlaceholderImplementation extends VideoPlayerPlatform {}
@@ -273,6 +317,8 @@ class VideoEvent {
     this.rotationCorrection,
     this.buffered,
     this.isPlaying,
+    this.isPipActive,
+    this.isPlayingInBackground,
   });
 
   /// The type of the event.
@@ -303,6 +349,16 @@ class VideoEvent {
   /// Only used if [eventType] is [VideoEventType.isPlayingStateUpdate].
   final bool? isPlaying;
 
+  /// Whether Picture-in-Picture mode is currently active.
+  ///
+  /// Only used if [eventType] is [VideoEventType.pipStateChanged].
+  final bool? isPipActive;
+
+  /// Whether the video is currently playing in the background.
+  ///
+  /// Only used if [eventType] is [VideoEventType.backgroundPlaybackStateChanged].
+  final bool? isPlayingInBackground;
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
@@ -313,7 +369,9 @@ class VideoEvent {
             size == other.size &&
             rotationCorrection == other.rotationCorrection &&
             listEquals(buffered, other.buffered) &&
-            isPlaying == other.isPlaying;
+            isPlaying == other.isPlaying &&
+            isPipActive == other.isPipActive &&
+            isPlayingInBackground == other.isPlayingInBackground;
   }
 
   @override
@@ -324,6 +382,8 @@ class VideoEvent {
     rotationCorrection,
     buffered,
     isPlaying,
+    isPipActive,
+    isPlayingInBackground,
   );
 }
 
@@ -354,6 +414,12 @@ enum VideoEventType {
   /// This event is fired when the video starts or pauses due to user actions or
   /// phone calls, or other app media such as music players.
   isPlayingStateUpdate,
+
+  /// The PiP state has changed.
+  pipStateChanged,
+
+  /// The background playback state has changed.
+  backgroundPlaybackStateChanged,
 
   /// An unknown event has been received.
   unknown,
@@ -651,4 +717,42 @@ class VideoAudioTrack {
       'sampleRate: $sampleRate, '
       'channelCount: $channelCount, '
       'codec: $codec)';
+}
+
+/// Media information for lock screen / notification display during
+/// background playback.
+@immutable
+class MediaInfo {
+  /// Constructs a [MediaInfo].
+  const MediaInfo({
+    required this.title,
+    this.artist,
+    this.artworkUrl,
+    this.durationMs,
+  });
+
+  /// The title of the media.
+  final String title;
+
+  /// The artist of the media.
+  final String? artist;
+
+  /// URL to the artwork image.
+  final String? artworkUrl;
+
+  /// Duration of the media in milliseconds.
+  final int? durationMs;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MediaInfo &&
+          runtimeType == other.runtimeType &&
+          title == other.title &&
+          artist == other.artist &&
+          artworkUrl == other.artworkUrl &&
+          durationMs == other.durationMs;
+
+  @override
+  int get hashCode => Object.hash(title, artist, artworkUrl, durationMs);
 }

@@ -18,6 +18,7 @@ export 'package:video_player_platform_interface/video_player_platform_interface.
     show
         DataSourceType,
         DurationRange,
+        MediaInfo,
         VideoFormat,
         VideoPlayerOptions,
         VideoPlayerWebOptions,
@@ -172,6 +173,8 @@ class VideoPlayerValue {
     this.rotationCorrection = 0,
     this.errorDescription,
     this.isCompleted = false,
+    this.isPipActive = false,
+    this.isPlayingInBackground = false,
   });
 
   /// Returns an instance for a video that hasn't been loaded.
@@ -238,6 +241,12 @@ class VideoPlayerValue {
   /// Does not update if video is looping.
   final bool isCompleted;
 
+  /// Whether Picture-in-Picture mode is currently active.
+  final bool isPipActive;
+
+  /// Whether the video is currently playing in the background.
+  final bool isPlayingInBackground;
+
   /// The [size] of the currently loaded video.
   final Size size;
 
@@ -286,6 +295,8 @@ class VideoPlayerValue {
     int? rotationCorrection,
     String? errorDescription = _defaultErrorDescription,
     bool? isCompleted,
+    bool? isPipActive,
+    bool? isPlayingInBackground,
   }) {
     return VideoPlayerValue(
       duration: duration ?? this.duration,
@@ -305,6 +316,8 @@ class VideoPlayerValue {
           ? errorDescription
           : this.errorDescription,
       isCompleted: isCompleted ?? this.isCompleted,
+      isPipActive: isPipActive ?? this.isPipActive,
+      isPlayingInBackground: isPlayingInBackground ?? this.isPlayingInBackground,
     );
   }
 
@@ -324,7 +337,9 @@ class VideoPlayerValue {
         'volume: $volume, '
         'playbackSpeed: $playbackSpeed, '
         'errorDescription: $errorDescription, '
-        'isCompleted: $isCompleted),';
+        'isCompleted: $isCompleted, '
+        'isPipActive: $isPipActive, '
+        'isPlayingInBackground: $isPlayingInBackground),';
   }
 
   @override
@@ -346,7 +361,9 @@ class VideoPlayerValue {
           size == other.size &&
           rotationCorrection == other.rotationCorrection &&
           isInitialized == other.isInitialized &&
-          isCompleted == other.isCompleted;
+          isCompleted == other.isCompleted &&
+          isPipActive == other.isPipActive &&
+          isPlayingInBackground == other.isPlayingInBackground;
 
   @override
   int get hashCode => Object.hash(
@@ -363,8 +380,7 @@ class VideoPlayerValue {
     errorDescription,
     size,
     rotationCorrection,
-    isInitialized,
-    isCompleted,
+    Object.hash(isInitialized, isCompleted, isPipActive, isPlayingInBackground),
   );
 }
 
@@ -646,6 +662,12 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
           } else {
             value = value.copyWith(isPlaying: event.isPlaying);
           }
+        case platform_interface.VideoEventType.pipStateChanged:
+          value = value.copyWith(isPipActive: event.isPipActive ?? false);
+        case platform_interface.VideoEventType.backgroundPlaybackStateChanged:
+          value = value.copyWith(
+            isPlayingInBackground: event.isPlayingInBackground ?? false,
+          );
         case platform_interface.VideoEventType.unknown:
           break;
       }
@@ -988,6 +1010,63 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     return _videoPlayerPlatform.isAudioTrackSupportAvailable();
   }
 
+  /// Returns whether Picture-in-Picture mode is supported on this device.
+  Future<bool> get isPipSupported async {
+    return _videoPlayerPlatform.isPipSupported();
+  }
+
+  /// Enters Picture-in-Picture mode.
+  Future<void> enterPip() async {
+    if (_isDisposedOrNotInitialized) {
+      return;
+    }
+    await _videoPlayerPlatform.enterPip(_playerId);
+  }
+
+  /// Exits Picture-in-Picture mode.
+  Future<void> exitPip() async {
+    if (_isDisposedOrNotInitialized) {
+      return;
+    }
+    await _videoPlayerPlatform.exitPip(_playerId);
+  }
+
+  /// Sets whether PiP should be entered automatically when the app
+  /// goes to background (Android 12+ only).
+  Future<void> setAutoEnterPip(bool enabled) async {
+    if (_isDisposedOrNotInitialized) {
+      return;
+    }
+    await _videoPlayerPlatform.setAutoEnterPip(_playerId, enabled);
+  }
+
+  /// Enables background playback for this player.
+  ///
+  /// When enabled, audio continues playing when the app is backgrounded.
+  /// On Android, this starts a foreground service with a media notification.
+  /// On iOS, this configures the audio session and sets up lock screen controls.
+  Future<void> enableBackgroundPlayback({
+    platform_interface.MediaInfo? mediaInfo,
+  }) async {
+    if (_isDisposedOrNotInitialized) {
+      return;
+    }
+    await _videoPlayerPlatform.enableBackgroundPlayback(
+      _playerId,
+      mediaInfo: mediaInfo,
+    );
+    value = value.copyWith(isPlayingInBackground: true);
+  }
+
+  /// Disables background playback for this player.
+  Future<void> disableBackgroundPlayback() async {
+    if (_isDisposedOrNotInitialized) {
+      return;
+    }
+    await _videoPlayerPlatform.disableBackgroundPlayback(_playerId);
+    value = value.copyWith(isPlayingInBackground: false);
+  }
+
   bool get _isDisposedOrNotInitialized => _isDisposed || !value.isInitialized;
 }
 
@@ -1004,6 +1083,11 @@ class _VideoAppLifeCycleObserver extends Object with WidgetsBindingObserver {
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
     if (state == AppLifecycleState.paused) {
+      // Don't pause if PiP is active or background playback is enabled
+      if (_controller.value.isPipActive ||
+          _controller.value.isPlayingInBackground) {
+        return;
+      }
       _wasPlayingBeforePause = _controller.value.isPlaying;
       _controller.pause();
     } else if (state == AppLifecycleState.resumed) {

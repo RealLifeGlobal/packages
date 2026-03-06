@@ -60,6 +60,16 @@ class AudioTrackChangedEvent extends PlatformVideoEvent {
   late final String? selectedTrackId;
 }
 
+/// Sent when PiP state changes.
+class PipStateEvent extends PlatformVideoEvent {
+  late final bool isInPipMode;
+}
+
+/// Sent when background playback state changes.
+class BackgroundPlaybackEvent extends PlatformVideoEvent {
+  late final bool isPlayingInBackground;
+}
+
 /// Information passed to the platform view creation.
 class PlatformVideoViewCreationParams {
   const PlatformVideoViewCreationParams({required this.playerId});
@@ -148,6 +158,14 @@ class NativeAudioTrackData {
   List<ExoPlayerAudioTrackData>? exoPlayerTracks;
 }
 
+class PlatformMediaInfo {
+  PlatformMediaInfo({required this.title});
+  String title;
+  String? artist;
+  String? artworkUrl;
+  int? durationMs;
+}
+
 @HostApi()
 abstract class AndroidVideoPlayerApi {
   void initialize();
@@ -159,6 +177,12 @@ abstract class AndroidVideoPlayerApi {
   void dispose(int playerId);
   void setMixWithOthers(bool mixWithOthers);
   String getLookupKeyForAsset(String asset, String? packageName);
+  void enableBackgroundPlayback(int playerId, PlatformMediaInfo? mediaInfo);
+  void disableBackgroundPlayback(int playerId);
+  bool isPipSupported();
+  void enterPip(int playerId);
+  bool isPipActive();
+  void setAutoEnterPip(bool enabled);
 }
 
 @HostApi()

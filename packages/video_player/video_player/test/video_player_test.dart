@@ -130,6 +130,24 @@ class FakeController extends ValueNotifier<VideoPlayerValue>
     return true;
   }
 
+  @override
+  Future<bool> get isPipSupported async => false;
+
+  @override
+  Future<void> enterPip() async {}
+
+  @override
+  Future<void> exitPip() async {}
+
+  @override
+  Future<void> setAutoEnterPip(bool enabled) async {}
+
+  @override
+  Future<void> enableBackgroundPlayback({MediaInfo? mediaInfo}) async {}
+
+  @override
+  Future<void> disableBackgroundPlayback() async {}
+
   String? selectedAudioTrackId;
 }
 

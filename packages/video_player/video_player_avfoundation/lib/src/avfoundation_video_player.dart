@@ -213,6 +213,50 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
+  Future<bool> isPipSupported() async {
+    return _api.isPipSupported();
+  }
+
+  @override
+  Future<void> enterPip(int playerId) {
+    return _api.enterPip(playerId);
+  }
+
+  @override
+  Future<void> exitPip(int playerId) {
+    return _api.exitPip(playerId);
+  }
+
+  @override
+  Future<bool> isPipActive(int playerId) async {
+    return _api.isPipActive(playerId);
+  }
+
+  @override
+  Future<void> setAutoEnterPip(int playerId, bool enabled) async {
+    // iOS PiP auto-enter is managed by the system when canStartPictureInPictureAutomaticallyFromInline
+    // is set on the PiP controller. This is not currently exposed.
+  }
+
+  @override
+  Future<void> enableBackgroundPlayback(int playerId, {MediaInfo? mediaInfo}) {
+    final PlatformMediaInfo? pigeonMediaInfo = mediaInfo != null
+        ? PlatformMediaInfo(
+            title: mediaInfo.title,
+            artist: mediaInfo.artist,
+            artworkUrl: mediaInfo.artworkUrl,
+            durationMs: mediaInfo.durationMs,
+          )
+        : null;
+    return _api.enableBackgroundPlayback(playerId, pigeonMediaInfo);
+  }
+
+  @override
+  Future<void> disableBackgroundPlayback(int playerId) {
+    return _api.disableBackgroundPlayback(playerId);
+  }
+
+  @override
   Widget buildView(int playerId) {
     return buildViewWithOptions(VideoViewOptions(playerId: playerId));
   }
@@ -330,6 +374,10 @@ class _PlayerInstance {
       'isPlayingStateUpdate' => VideoEvent(
         eventType: VideoEventType.isPlayingStateUpdate,
         isPlaying: map['isPlaying'] as bool,
+      ),
+      'pipStateChanged' => VideoEvent(
+        eventType: VideoEventType.pipStateChanged,
+        isPipActive: map['isPipActive'] as bool,
       ),
       _ => VideoEvent(eventType: VideoEventType.unknown),
     });

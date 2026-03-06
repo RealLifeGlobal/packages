@@ -103,6 +103,10 @@
   [self sendOrQueue:@{@"event" : @"isPlayingStateUpdate", @"isPlaying" : @(playing)}];
 }
 
+- (void)videoPlayerDidChangePipState:(BOOL)isPipActive {
+  [self sendOrQueue:@{@"event" : @"pipStateChanged", @"isPipActive" : @(isPipActive)}];
+}
+
 - (void)videoPlayerWasDisposed {
   [self.eventChannel setStreamHandler:nil];
 }

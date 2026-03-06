@@ -266,6 +266,50 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
     return true;
   }
 
+  @override
+  Future<bool> isPipSupported() async {
+    return _api.isPipSupported();
+  }
+
+  @override
+  Future<void> enterPip(int playerId) {
+    return _api.enterPip(playerId);
+  }
+
+  @override
+  Future<void> exitPip(int playerId) async {
+    // Android PiP is exited by tapping the full-screen button in PiP window
+    // or by the system. There's no programmatic exit API needed.
+  }
+
+  @override
+  Future<bool> isPipActive(int playerId) async {
+    return _api.isPipActive();
+  }
+
+  @override
+  Future<void> setAutoEnterPip(int playerId, bool enabled) {
+    return _api.setAutoEnterPip(enabled);
+  }
+
+  @override
+  Future<void> enableBackgroundPlayback(int playerId, {MediaInfo? mediaInfo}) {
+    final PlatformMediaInfo? pigeonMediaInfo = mediaInfo != null
+        ? PlatformMediaInfo(
+            title: mediaInfo.title,
+            artist: mediaInfo.artist,
+            artworkUrl: mediaInfo.artworkUrl,
+            durationMs: mediaInfo.durationMs,
+          )
+        : null;
+    return _api.enableBackgroundPlayback(playerId, pigeonMediaInfo);
+  }
+
+  @override
+  Future<void> disableBackgroundPlayback(int playerId) {
+    return _api.disableBackgroundPlayback(playerId);
+  }
+
   _PlayerInstance _playerWith({required int id}) {
     final _PlayerInstance? player = _players[id];
     return player ?? (throw StateError('No active player with ID $id.'));
@@ -487,6 +531,20 @@ class _PlayerInstance {
             !_audioTrackSelectionCompleter!.isCompleted) {
           _audioTrackSelectionCompleter!.complete();
         }
+      case PipStateEvent _:
+        _eventStreamController.add(
+          VideoEvent(
+            eventType: VideoEventType.pipStateChanged,
+            isPipActive: event.isInPipMode,
+          ),
+        );
+      case BackgroundPlaybackEvent _:
+        _eventStreamController.add(
+          VideoEvent(
+            eventType: VideoEventType.backgroundPlaybackStateChanged,
+            isPlayingInBackground: event.isPlayingInBackground,
+          ),
+        );
     }
   }
 

@@ -8,6 +8,8 @@
 #import <GLKit/GLKit.h>
 
 #import "./include/video_player_avfoundation/AVAssetTrackUtils.h"
+#import "./include/video_player_avfoundation/FVPBackgroundAudioHandler.h"
+#import "./include/video_player_avfoundation/FVPPipController.h"
 
 static void *timeRangeContext = &timeRangeContext;
 static void *statusContext = &statusContext;
@@ -69,6 +71,14 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
 @implementation FVPVideoPlayer {
   // Whether or not player and player item listeners have ever been registered.
   BOOL _listenersRegistered;
+}
+
+// Lazily create the player layer only when PiP support is actually needed.
+- (AVPlayerLayer *)playerLayer {
+  if (!_playerLayer) {
+    _playerLayer = [AVPlayerLayer playerLayerWithPlayer:_player];
+  }
+  return _playerLayer;
 }
 
 - (instancetype)initWithPlayerItem:(NSObject<FVPAVPlayerItem> *)item
@@ -169,6 +179,18 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
     [[NSNotificationCenter defaultCenter] removeObserver:self];
     FVPRemoveKeyValueObservers(self, FVPGetPlayerItemObservations(), self.player.currentItem);
     FVPRemoveKeyValueObservers(self, FVPGetPlayerObservations(), self.player);
+  }
+
+  // Clean up PiP controller.
+  if (_pipController) {
+    [_pipController stopPip];
+    _pipController = nil;
+  }
+
+  // Clean up background audio handler.
+  if (_backgroundAudioHandler) {
+    [_backgroundAudioHandler disable];
+    _backgroundAudioHandler = nil;
   }
 
   [self.player replaceCurrentItemWithPlayerItem:nil];
@@ -506,6 +528,20 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
     AVMediaSelectionOption *option = audioGroup.options[trackIndex];
     [currentItem selectMediaOption:option inMediaSelectionGroup:audioGroup];
   }
+}
+
+#pragma mark - FVPPipControllerDelegate
+
+- (void)pipControllerDidStartPip {
+  [self.eventListener videoPlayerDidChangePipState:YES];
+}
+
+- (void)pipControllerDidStopPip {
+  [self.eventListener videoPlayerDidChangePipState:NO];
+}
+
+- (void)pipControllerFailedToStartWithError:(NSError *)error {
+  NSLog(@"PiP failed to start: %@", error.localizedDescription);
 }
 
 #pragma mark - Private
