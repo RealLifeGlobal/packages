@@ -84,6 +84,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
     }
     flutterState.stopListening(binding.getBinaryMessenger());
     flutterState = null;
+    PipCallbackHelper.setListener(null);
     onDestroy();
   }
 
@@ -123,12 +124,17 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
   }
 
   private void disposeAllPlayers() {
+    // Unbind (and release the MediaSession) BEFORE releasing any ExoPlayers.
+    // If the session is still alive when the player's thread is killed, queued
+    // media-button commands (play/pause from the notification) will try to post
+    // to a dead Handler, causing an ANR.
+    unbindPlaybackService();
+
     for (int i = 0; i < videoPlayers.size(); i++) {
       videoPlayers.valueAt(i).dispose();
     }
     videoPlayers.clear();
     backgroundEnabledPlayers.clear();
-    unbindPlaybackService();
   }
 
   private void bindPlaybackService() {
@@ -171,6 +177,15 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
   }
 
   private void unbindPlaybackService() {
+    // Always release the MediaSession synchronously before stopping the
+    // service so that no queued media-button commands reach an
+    // already-released player.
+    PlaybackService service = PlaybackService.getInstance();
+    if (service != null) {
+      service.releaseSession();
+    }
+    pendingServicePlayer = null;
+    pendingMediaInfo = null;
     if (!serviceBound || flutterState == null) return;
     Context context = flutterState.applicationContext;
     if (serviceConnection != null) {
@@ -178,8 +193,6 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
     }
     context.stopService(new Intent(context, PlaybackService.class));
     serviceBound = false;
-    pendingServicePlayer = null;
-    pendingMediaInfo = null;
   }
 
   public void onDestroy() {

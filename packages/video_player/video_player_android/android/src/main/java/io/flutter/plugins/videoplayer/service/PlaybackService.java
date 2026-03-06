@@ -90,14 +90,23 @@ public class PlaybackService extends MediaSessionService {
         stopSelf();
     }
 
-    @Override
-    public void onDestroy() {
+    /**
+     * Synchronously releases the MediaSession so it can no longer forward
+     * commands to the player. Must be called before the ExoPlayer is released
+     * to avoid sending messages to a dead thread.
+     */
+    public void releaseSession() {
         if (mediaSession != null) {
             removeSession(mediaSession);
             mediaSession.release();
             mediaSession = null;
         }
         player = null;
+    }
+
+    @Override
+    public void onDestroy() {
+        releaseSession();
         instance = null;
         super.onDestroy();
     }

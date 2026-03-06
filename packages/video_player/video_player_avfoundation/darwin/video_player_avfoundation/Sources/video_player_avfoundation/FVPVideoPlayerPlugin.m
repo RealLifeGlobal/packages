@@ -161,6 +161,17 @@
                                                    channelSuffix]];
   player.eventListener = eventBridge;
 
+  // Eagerly create PiP controller so it's ready when enterPip is called.
+  // AVPictureInPictureController needs time for isPictureInPicturePossible to
+  // become YES. Creating it lazily in enterPip causes the first tap to fail
+  // because startPictureInPicture must be called from a user action context.
+#if TARGET_OS_IOS
+  if ([FVPPipController isPipSupported] && !player.pipController) {
+    player.pipController = [[FVPPipController alloc] initWithPlayerLayer:player.playerLayer];
+    player.pipController.delegate = player;
+  }
+#endif
+
   return playerIdentifier;
 }
 

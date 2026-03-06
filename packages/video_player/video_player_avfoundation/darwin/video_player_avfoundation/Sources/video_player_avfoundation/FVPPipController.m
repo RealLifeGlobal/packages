@@ -11,6 +11,7 @@ static void *pipPossibleContext = &pipPossibleContext;
   AVPlayerLayer *_playerLayer;
   BOOL _pendingStart;
   BOOL _observingPossible;
+  BOOL _manualStart;
 }
 
 + (BOOL)isPipSupported {
@@ -62,6 +63,7 @@ static void *pipPossibleContext = &pipPossibleContext;
 - (void)startPip {
 #if TARGET_OS_IOS
   if (_pipController && !_pipController.isPictureInPictureActive) {
+    _manualStart = YES;
     if (_pipController.isPictureInPicturePossible) {
       [_pipController startPictureInPicture];
     } else {
@@ -74,6 +76,7 @@ static void *pipPossibleContext = &pipPossibleContext;
 - (void)stopPip {
 #if TARGET_OS_IOS
   _pendingStart = NO;
+  _manualStart = NO;
   if (_pipController && _pipController.isPictureInPictureActive) {
     [_pipController stopPictureInPicture];
   }
@@ -111,6 +114,20 @@ static void *pipPossibleContext = &pipPossibleContext;
 
 - (void)pictureInPictureControllerDidStartPictureInPicture:
     (AVPictureInPictureController *)pictureInPictureController {
+#if TARGET_OS_IOS
+  if (_manualStart) {
+    _manualStart = NO;
+    // Move the app to background so PiP floats over the home screen,
+    // matching the Android PiP behavior.
+    SEL suspendSel = NSSelectorFromString(@"suspend");
+    if ([[UIApplication sharedApplication] respondsToSelector:suspendSel]) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Warc-performSelector-leaks"
+      [[UIApplication sharedApplication] performSelector:suspendSel];
+#pragma clang diagnostic pop
+    }
+  }
+#endif
   [self.delegate pipControllerDidStartPip];
 }
 
@@ -126,6 +143,7 @@ static void *pipPossibleContext = &pipPossibleContext;
 
 - (void)pictureInPictureController:(AVPictureInPictureController *)pictureInPictureController
     failedToStartPictureInPictureWithError:(NSError *)error {
+  _manualStart = NO;
   [self.delegate pipControllerFailedToStartWithError:error];
 }
 

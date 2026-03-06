@@ -356,7 +356,9 @@ class VideoPlayerValue {
         'errorDescription: $errorDescription, '
         'isCompleted: $isCompleted, '
         'isPipActive: $isPipActive, '
-        'isPlayingInBackground: $isPlayingInBackground),';
+        'isPlayingInBackground: $isPlayingInBackground, '
+        'isAutoEnterPipEnabled: $isAutoEnterPipEnabled, '
+        'pipSize: $pipSize)';
   }
 
   @override
@@ -380,7 +382,9 @@ class VideoPlayerValue {
           isInitialized == other.isInitialized &&
           isCompleted == other.isCompleted &&
           isPipActive == other.isPipActive &&
-          isPlayingInBackground == other.isPlayingInBackground;
+          isPlayingInBackground == other.isPlayingInBackground &&
+          isAutoEnterPipEnabled == other.isAutoEnterPipEnabled &&
+          pipSize == other.pipSize;
 
   @override
   int get hashCode => Object.hash(
@@ -397,7 +401,7 @@ class VideoPlayerValue {
     errorDescription,
     size,
     rotationCorrection,
-    Object.hash(isInitialized, isCompleted, isPipActive, isPlayingInBackground),
+    Object.hash(isInitialized, isCompleted, isPipActive, isPlayingInBackground, isAutoEnterPipEnabled, pipSize),
   );
 }
 
@@ -550,6 +554,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   Future<ClosedCaptionFile>? _closedCaptionFileFuture;
   ClosedCaptionFile? _closedCaptionFile;
   Timer? _timer;
+  Timer? _pipDismissTimer;
   bool _isDisposed = false;
   // PiP dismiss detection: these two flags track signals that may arrive in
   // either order. When both are true, the user dismissed PiP.
@@ -695,6 +700,13 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
           if (!isPip) {
             _sawPipExit = true;
             _checkPipDismissed();
+            // Fallback: clear stale flag if no lifecycle event arrives
+            // (e.g., on iOS where PiP dismiss doesn't cause lifecycle paused).
+            _pipDismissTimer?.cancel();
+            _pipDismissTimer = Timer(const Duration(seconds: 2), () {
+              _sawPipExit = false;
+              _sawLifecyclePausedDuringPip = false;
+            });
           }
         case platform_interface.VideoEventType.unknown:
           break;
@@ -731,6 +743,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
       if (!_isDisposed) {
         _isDisposed = true;
         _timer?.cancel();
+        _pipDismissTimer?.cancel();
         await _eventSubscription?.cancel();
         await _videoPlayerPlatform.dispose(_playerId);
       }
@@ -1078,16 +1091,13 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     platform_interface.MediaInfo? mediaInfo,
   }) async {
     if (_isDisposedOrNotInitialized) {
-      debugPrint('video_player: [BG-DART] enableBackgroundPlayback skipped — disposed or not initialized');
       return;
     }
-    debugPrint('video_player: [BG-DART] Calling platform enableBackgroundPlayback for player $_playerId');
     await _videoPlayerPlatform.enableBackgroundPlayback(
       _playerId,
       mediaInfo: mediaInfo,
     );
     value = value.copyWith(isPlayingInBackground: true);
-    debugPrint('video_player: [BG-DART] isPlayingInBackground is now ${value.isPlayingInBackground}');
   }
 
   /// Disables background playback for this player.
@@ -1105,6 +1115,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// Pauses playback only when both signals confirm a dismiss.
   void _checkPipDismissed() {
     if (_sawPipExit && _sawLifecyclePausedDuringPip) {
+      _pipDismissTimer?.cancel();
       _sawPipExit = false;
       _sawLifecyclePausedDuringPip = false;
       pause();
@@ -1124,13 +1135,6 @@ class _VideoAppLifeCycleObserver extends Object with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    debugPrint('video_player: [LIFECYCLE] state=$state, '
-        'isPipActive=${_controller.value.isPipActive}, '
-        'isPlayingInBackground=${_controller.value.isPlayingInBackground}, '
-        'isAutoEnterPipEnabled=${_controller.value.isAutoEnterPipEnabled}, '
-        'isPlaying=${_controller.value.isPlaying}, '
-        'sawPipExit=${_controller._sawPipExit}');
-
     // PiP dismiss/expand detection. While PiP is active or was recently
     // exited, route all lifecycle events through the PiP detection logic
     // instead of normal pause/resume handling.
@@ -1142,7 +1146,7 @@ class _VideoAppLifeCycleObserver extends Object with WidgetsBindingObserver {
         _controller._checkPipDismissed();
       } else if (state == AppLifecycleState.resumed) {
         // Back to foreground — expanded, not dismissed. Clear flags.
-        debugPrint('video_player: [LIFECYCLE] PiP expanded back, not pausing');
+        _controller._pipDismissTimer?.cancel();
         _controller._sawPipExit = false;
         _controller._sawLifecyclePausedDuringPip = false;
       }
@@ -1154,14 +1158,11 @@ class _VideoAppLifeCycleObserver extends Object with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused) {
       if (_controller.value.isPlayingInBackground ||
           _controller.value.isAutoEnterPipEnabled) {
-        debugPrint('video_player: [LIFECYCLE] Skipping pause — background/auto-PiP guard');
         return;
       }
       _wasPlayingBeforePause = _controller.value.isPlaying;
-      debugPrint('video_player: [LIFECYCLE] PAUSING player (wasPlaying=$_wasPlayingBeforePause)');
       _controller.pause();
     } else if (state == AppLifecycleState.resumed) {
-      debugPrint('video_player: [LIFECYCLE] Resumed, wasPlayingBeforePause=$_wasPlayingBeforePause');
       if (_wasPlayingBeforePause) {
         _controller.play();
       }
