@@ -305,16 +305,22 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
   return [NSURL fileURLWithPath:path].absoluteString;
 }
 
+- (nullable FVPVideoPlayer *)playerForId:(NSInteger)playerId
+                                    error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
+  if (!player) {
+    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
+  }
+  return player;
+}
+
 - (nullable NSNumber *)isPipSupported:(FlutterError *_Nullable *_Nonnull)error {
   return @([FVPPipController isPipSupported]);
 }
 
 - (void)enterPipForPlayer:(NSInteger)playerId error:(FlutterError *_Nullable *_Nonnull)error {
-  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
-  if (!player) {
-    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
-    return;
-  }
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) return;
   if (!player.pipController) {
     player.pipController = [[FVPPipController alloc] initWithPlayerLayer:player.playerLayer];
     player.pipController.delegate = player;
@@ -323,32 +329,23 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
 }
 
 - (void)exitPipForPlayer:(NSInteger)playerId error:(FlutterError *_Nullable *_Nonnull)error {
-  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
-  if (!player) {
-    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
-    return;
-  }
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) return;
   [player.pipController stopPip];
 }
 
 - (nullable NSNumber *)isPipActiveForPlayer:(NSInteger)playerId
                                       error:(FlutterError *_Nullable *_Nonnull)error {
-  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
-  if (!player) {
-    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
-    return nil;
-  }
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) return nil;
   return @(player.pipController.isPipActive);
 }
 
 - (void)enableBackgroundPlaybackForPlayer:(NSInteger)playerId
                                 mediaInfo:(nullable FVPPlatformMediaInfo *)mediaInfo
                                     error:(FlutterError *_Nullable *_Nonnull)error {
-  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
-  if (!player) {
-    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
-    return;
-  }
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) return;
   if (!player.backgroundAudioHandler) {
     player.backgroundAudioHandler =
         [[FVPBackgroundAudioHandler alloc] initWithPlayer:player.player];
@@ -361,11 +358,8 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
 
 - (void)disableBackgroundPlaybackForPlayer:(NSInteger)playerId
                                      error:(FlutterError *_Nullable *_Nonnull)error {
-  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
-  if (!player) {
-    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
-    return;
-  }
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) return;
   [player.backgroundAudioHandler disable];
 }
 

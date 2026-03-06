@@ -498,7 +498,6 @@ class _PipBackgroundDemo extends StatefulWidget {
 class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
   late VideoPlayerController _controller;
   bool _pipSupported = false;
-  bool _backgroundEnabled = false;
 
   @override
   void initState() {
@@ -624,9 +623,8 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 8),
-                  Text('Enabled: $_backgroundEnabled'),
                   Text(
-                    'Playing in background: ${_controller.value.isPlayingInBackground}',
+                    'Enabled: ${_controller.value.isPlayingInBackground}',
                   ),
                   const SizedBox(height: 8),
                   Wrap(
@@ -635,26 +633,20 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                       ElevatedButton.icon(
                         icon: const Icon(Icons.volume_up),
                         label: const Text('Enable Background'),
-                        onPressed: !_backgroundEnabled
-                            ? () async {
-                                await _controller.enableBackgroundPlayback(
+                        onPressed: !_controller.value.isPlayingInBackground
+                            ? () => _controller.enableBackgroundPlayback(
                                   mediaInfo: const MediaInfo(
                                     title: 'Bumblebee Video',
                                     artist: 'Flutter',
                                   ),
-                                );
-                                setState(() => _backgroundEnabled = true);
-                              }
+                                )
                             : null,
                       ),
                       ElevatedButton.icon(
                         icon: const Icon(Icons.volume_off),
                         label: const Text('Disable Background'),
-                        onPressed: _backgroundEnabled
-                            ? () async {
-                                await _controller.disableBackgroundPlayback();
-                                setState(() => _backgroundEnabled = false);
-                              }
+                        onPressed: _controller.value.isPlayingInBackground
+                            ? () => _controller.disableBackgroundPlayback()
                             : null,
                       ),
                     ],

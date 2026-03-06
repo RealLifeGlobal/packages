@@ -18,6 +18,7 @@
   id _playTarget;
   id _pauseTarget;
   id _seekTarget;
+  NSNumber *_cachedDuration;
 }
 
 - (instancetype)initWithPlayer:(AVPlayer *)player {
@@ -46,6 +47,7 @@
   _isEnabled = YES;
   _title = title ?: @"Video";
   _artist = artist;
+  _cachedDuration = nil;
 
   // Set up remote command center
   MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
@@ -119,6 +121,7 @@
 - (void)updateNowPlayingInfo {
 #if TARGET_OS_IOS
   if (!_isEnabled) return;
+  if (!_player.currentItem) return;
 
   NSMutableDictionary *info = [NSMutableDictionary dictionary];
   info[MPMediaItemPropertyTitle] = _title ?: @"Video";
@@ -126,9 +129,14 @@
     info[MPMediaItemPropertyArtist] = _artist;
   }
 
-  CMTime duration = _player.currentItem.asset.duration;
-  if (CMTIME_IS_VALID(duration) && !CMTIME_IS_INDEFINITE(duration)) {
-    info[MPMediaItemPropertyPlaybackDuration] = @(CMTimeGetSeconds(duration));
+  if (!_cachedDuration) {
+    CMTime duration = _player.currentItem.asset.duration;
+    if (CMTIME_IS_VALID(duration) && !CMTIME_IS_INDEFINITE(duration)) {
+      _cachedDuration = @(CMTimeGetSeconds(duration));
+    }
+  }
+  if (_cachedDuration) {
+    info[MPMediaItemPropertyPlaybackDuration] = _cachedDuration;
   }
 
   info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(CMTimeGetSeconds(_player.currentTime));

@@ -83,29 +83,31 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
   // ActivityAware implementation
   @Override
   public void onAttachedToActivity(@NonNull ActivityPluginBinding binding) {
-    activityBinding = binding;
-    pipHandler.setActivity(binding.getActivity());
-    binding.addOnUserLeaveHintListener(onUserLeaveHintListener);
+    attachToActivity(binding);
   }
 
   @Override
   public void onDetachedFromActivityForConfigChanges() {
-    if (activityBinding != null) {
-      activityBinding.removeOnUserLeaveHintListener(onUserLeaveHintListener);
-      activityBinding = null;
-    }
-    pipHandler.setActivity(null);
+    detachFromActivity();
   }
 
   @Override
   public void onReattachedToActivityForConfigChanges(@NonNull ActivityPluginBinding binding) {
+    attachToActivity(binding);
+  }
+
+  @Override
+  public void onDetachedFromActivity() {
+    detachFromActivity();
+  }
+
+  private void attachToActivity(@NonNull ActivityPluginBinding binding) {
     activityBinding = binding;
     pipHandler.setActivity(binding.getActivity());
     binding.addOnUserLeaveHintListener(onUserLeaveHintListener);
   }
 
-  @Override
-  public void onDetachedFromActivity() {
+  private void detachFromActivity() {
     if (activityBinding != null) {
       activityBinding.removeOnUserLeaveHintListener(onUserLeaveHintListener);
       activityBinding = null;
@@ -254,7 +256,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
     player.setDisposeHandler(
         () -> {
           VideoPlayerInstanceApi.Companion.setUp(messenger, null, channelSuffix);
-          backgroundEnabledPlayers.remove(id);
+          removeBackgroundPlayer(id);
         });
 
     videoPlayers.put(id, player);
@@ -278,10 +280,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
     VideoPlayer player = getPlayer(playerId);
     player.dispose();
     videoPlayers.remove(playerId);
-    backgroundEnabledPlayers.remove(playerId);
-    if (backgroundEnabledPlayers.isEmpty()) {
-      unbindPlaybackService();
-    }
+    removeBackgroundPlayer(playerId);
   }
 
   @Override
@@ -318,6 +317,10 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
 
   @Override
   public void disableBackgroundPlayback(long playerId) {
+    removeBackgroundPlayer(playerId);
+  }
+
+  private void removeBackgroundPlayer(long playerId) {
     backgroundEnabledPlayers.remove(playerId);
     if (backgroundEnabledPlayers.isEmpty()) {
       unbindPlaybackService();
