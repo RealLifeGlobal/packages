@@ -44,12 +44,19 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
   @Nullable private ServiceConnection serviceConnection;
   private boolean serviceBound = false;
   @Nullable private ExoPlayer pendingServicePlayer;
+  @Nullable private PlatformMediaInfo pendingMediaInfo;
   @Nullable private ActivityPluginBinding activityBinding;
   private final PluginRegistry.UserLeaveHintListener onUserLeaveHintListener =
       () -> pipHandler.onUserLeaveHint();
 
   /** Register this with the v2 embedding for the plugin to respond to lifecycle callbacks. */
-  public VideoPlayerPlugin() {}
+  public VideoPlayerPlugin() {
+    pipHandler.setPipStateListener((isInPipMode, wasDismissed, widthDp, heightDp) -> {
+      for (int i = 0; i < videoPlayers.size(); i++) {
+        videoPlayers.valueAt(i).notifyPipStateChanged(isInPipMode, wasDismissed, widthDp, heightDp);
+      }
+    });
+  }
 
   @Override
   public void onAttachedToEngine(@NonNull FlutterPluginBinding binding) {
@@ -137,8 +144,12 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
           PlaybackService service = PlaybackService.getInstance();
           if (service != null) {
             Log.d(TAG, "Service connected, setting player on PlaybackService");
-            service.setPlayer(pendingServicePlayer);
+            service.setPlayer(pendingServicePlayer,
+                pendingMediaInfo != null ? pendingMediaInfo.getTitle() : null,
+                pendingMediaInfo != null ? pendingMediaInfo.getArtist() : null,
+                pendingMediaInfo != null ? pendingMediaInfo.getArtworkUrl() : null);
             pendingServicePlayer = null;
+            pendingMediaInfo = null;
           } else {
             Log.w(TAG, "Service connected but getInstance() returned null");
           }
@@ -168,6 +179,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
     context.stopService(new Intent(context, PlaybackService.class));
     serviceBound = false;
     pendingServicePlayer = null;
+    pendingMediaInfo = null;
   }
 
   public void onDestroy() {
@@ -306,10 +318,14 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
     PlaybackService service = PlaybackService.getInstance();
     if (service != null) {
       Log.d(TAG, "Service already running, setting player directly");
-      service.setPlayer(exoPlayer);
+      service.setPlayer(exoPlayer,
+          mediaInfo != null ? mediaInfo.getTitle() : null,
+          mediaInfo != null ? mediaInfo.getArtist() : null,
+          mediaInfo != null ? mediaInfo.getArtworkUrl() : null);
     } else {
-      // Store reference so onServiceConnected can pass it to the service.
+      // Store references so onServiceConnected can pass them to the service.
       pendingServicePlayer = exoPlayer;
+      pendingMediaInfo = mediaInfo;
       Log.d(TAG, "Service not running, starting and storing pending player");
     }
     bindPlaybackService();

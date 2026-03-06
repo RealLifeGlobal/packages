@@ -19,6 +19,11 @@
   id _pauseTarget;
   id _seekTarget;
   NSNumber *_cachedDuration;
+#if TARGET_OS_IOS
+  UIBackgroundTaskIdentifier _backgroundTask;
+  MPMediaItemArtwork *_cachedArtwork;
+  NSString *_artworkUrl;
+#endif
 }
 
 - (instancetype)initWithPlayer:(AVPlayer *)player {
@@ -26,6 +31,9 @@
   if (self) {
     _player = player;
     _isEnabled = NO;
+#if TARGET_OS_IOS
+    _backgroundTask = UIBackgroundTaskInvalid;
+#endif
   }
   return self;
 }
@@ -42,12 +50,61 @@
   // Remove any existing handlers first to prevent leaks.
   if (_isEnabled) {
     [self removeCommandTargets];
+    [self removeAppLifecycleObservers];
   }
 
   _isEnabled = YES;
   _title = title ?: @"Video";
   _artist = artist;
   _cachedDuration = nil;
+  _cachedArtwork = nil;
+  _artworkUrl = artworkUrl;
+
+  if (artworkUrl.length > 0) {
+    [self loadArtworkFromUrl:artworkUrl];
+  }
+
+  NSLog(@"video_player: [BG] enableWithTitle called — title=%@, player.rate=%f", title, _player.rate);
+
+  // Ensure audio session category is Playback (not Ambient/SoloAmbient) so audio
+  // continues when the app is backgrounded. Re-set here in case another plugin or
+  // player changed the category since initialize was called.
+  AVAudioSession *session = [AVAudioSession sharedInstance];
+  NSError *categoryError = nil;
+  [session setCategory:AVAudioSessionCategoryPlayback
+                  mode:AVAudioSessionModeDefault
+               options:0
+                 error:&categoryError];
+  if (categoryError) {
+    NSLog(@"video_player: [BG] Failed to set audio session category: %@", categoryError);
+  }
+
+  // Explicitly activate the audio session so playback persists through background transitions.
+  NSError *sessionError = nil;
+  [session setActive:YES error:&sessionError];
+  if (sessionError) {
+    NSLog(@"video_player: [BG] Failed to activate audio session: %@", sessionError);
+  }
+
+  // Signal to iOS that this app is an active media app.
+  [[UIApplication sharedApplication] beginReceivingRemoteControlEvents];
+
+  NSLog(@"video_player: [BG] Audio session ready — category=%@, active=YES, player.rate=%f",
+        session.category, _player.rate);
+
+  // Observe app lifecycle to keep playback alive across background transitions.
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(handleEnterBackground:)
+                                               name:UIApplicationDidEnterBackgroundNotification
+                                             object:nil];
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(handleEnterForeground:)
+                                               name:UIApplicationWillEnterForegroundNotification
+                                             object:nil];
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(handleInterruption:)
+                                               name:AVAudioSessionInterruptionNotification
+                                             object:session];
 
   // Set up remote command center
   MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
@@ -89,7 +146,9 @@
 #if TARGET_OS_IOS
   _isEnabled = NO;
 
+  [self removeAppLifecycleObservers];
   [self removeCommandTargets];
+  [self endBackgroundTask];
 
   if (_timeObserver) {
     [_player removeTimeObserver:_timeObserver];
@@ -97,10 +156,95 @@
   }
 
   [MPNowPlayingInfoCenter defaultCenter].nowPlayingInfo = nil;
+  [[UIApplication sharedApplication] endReceivingRemoteControlEvents];
 #endif
 }
 
 #if TARGET_OS_IOS
+
+#pragma mark - App Lifecycle
+
+- (void)handleEnterBackground:(NSNotification *)notification {
+  if (!_isEnabled) return;
+
+  NSLog(@"video_player: [BG] App entered background — player.rate=%f, starting background task", _player.rate);
+
+  // Start a background task to buy time for the audio session to take over.
+  // Without this, iOS may suspend the process before AVPlayer establishes
+  // its background audio rendering pipeline.
+  [self endBackgroundTask];
+  _backgroundTask = [[UIApplication sharedApplication]
+      beginBackgroundTaskWithExpirationHandler:^{
+        NSLog(@"video_player: [BG] Background task expired");
+        [self endBackgroundTask];
+      }];
+
+  // Re-assert playback. When the app transitions to background, the system may
+  // momentarily pause the AVPlayer. Calling play again ensures the audio
+  // rendering pipeline stays active, which is what tells iOS to keep the app alive.
+  if (_player.rate == 0 && _player.currentItem) {
+    NSLog(@"video_player: [BG] Player was paused, re-starting playback");
+    [_player play];
+  }
+
+  // Schedule a follow-up to ensure playback is still active after the transition settles.
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{
+    if (self->_isEnabled && self->_player.rate == 0 && self->_player.currentItem) {
+      NSLog(@"video_player: [BG] Player still paused after 0.5s, re-starting");
+      [self->_player play];
+    }
+    NSLog(@"video_player: [BG] Background settled — player.rate=%f", self->_player.rate);
+  });
+}
+
+- (void)handleEnterForeground:(NSNotification *)notification {
+  if (!_isEnabled) return;
+
+  NSLog(@"video_player: [BG] App entering foreground — player.rate=%f", _player.rate);
+  [self endBackgroundTask];
+}
+
+- (void)handleInterruption:(NSNotification *)notification {
+  if (!_isEnabled) return;
+
+  NSDictionary *info = notification.userInfo;
+  AVAudioSessionInterruptionType type =
+      [info[AVAudioSessionInterruptionTypeKey] unsignedIntegerValue];
+
+  if (type == AVAudioSessionInterruptionTypeBegan) {
+    NSLog(@"video_player: [BG] Audio session interrupted (began)");
+  } else if (type == AVAudioSessionInterruptionTypeEnded) {
+    NSLog(@"video_player: [BG] Audio session interruption ended, resuming playback");
+    AVAudioSessionInterruptionOptions options =
+        [info[AVAudioSessionInterruptionOptionKey] unsignedIntegerValue];
+    if (options & AVAudioSessionInterruptionOptionShouldResume) {
+      [_player play];
+    }
+  }
+}
+
+- (void)endBackgroundTask {
+  if (_backgroundTask != UIBackgroundTaskInvalid) {
+    [[UIApplication sharedApplication] endBackgroundTask:_backgroundTask];
+    _backgroundTask = UIBackgroundTaskInvalid;
+  }
+}
+
+- (void)removeAppLifecycleObservers {
+  [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                  name:UIApplicationDidEnterBackgroundNotification
+                                                object:nil];
+  [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                  name:UIApplicationWillEnterForegroundNotification
+                                                object:nil];
+  [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                  name:AVAudioSessionInterruptionNotification
+                                                object:nil];
+}
+
+#pragma mark - Remote Command Targets
+
 - (void)removeCommandTargets {
   MPRemoteCommandCenter *commandCenter = [MPRemoteCommandCenter sharedCommandCenter];
   if (_playTarget) {
@@ -115,6 +259,37 @@
     [commandCenter.changePlaybackPositionCommand removeTarget:_seekTarget];
     _seekTarget = nil;
   }
+}
+
+- (void)loadArtworkFromUrl:(NSString *)urlString {
+  NSURL *url = [NSURL URLWithString:urlString];
+  if (!url) return;
+
+  __weak typeof(self) weakSelf = self;
+  NSURLSessionDataTask *task = [[NSURLSession sharedSession]
+      dataTaskWithURL:url
+    completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
+      if (error || !data) {
+        NSLog(@"video_player: [BG] Failed to load artwork: %@", error);
+        return;
+      }
+      UIImage *image = [UIImage imageWithData:data];
+      if (!image) return;
+
+      dispatch_async(dispatch_get_main_queue(), ^{
+        typeof(self) strongSelf = weakSelf;
+        if (!strongSelf || !strongSelf->_isEnabled) return;
+        // Only apply if the URL hasn't changed since the request started.
+        if (![strongSelf->_artworkUrl isEqualToString:urlString]) return;
+        strongSelf->_cachedArtwork = [[MPMediaItemArtwork alloc]
+            initWithBoundsSize:image.size
+                requestHandler:^UIImage *(CGSize size) {
+                  return image;
+                }];
+        [strongSelf updateNowPlayingInfo];
+      });
+    }];
+  [task resume];
 }
 #endif
 
@@ -137,6 +312,10 @@
   }
   if (_cachedDuration) {
     info[MPMediaItemPropertyPlaybackDuration] = _cachedDuration;
+  }
+
+  if (_cachedArtwork) {
+    info[MPMediaItemPropertyArtwork] = _cachedArtwork;
   }
 
   info[MPNowPlayingInfoPropertyElapsedPlaybackTime] = @(CMTimeGetSeconds(_player.currentTime));

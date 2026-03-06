@@ -5,10 +5,13 @@
 package io.flutter.plugins.videoplayer.service;
 
 import android.content.Intent;
+import android.net.Uri;
 import android.os.IBinder;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.media3.common.MediaItem;
+import androidx.media3.common.MediaMetadata;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
@@ -31,12 +34,34 @@ public class PlaybackService extends MediaSessionService {
         return instance;
     }
 
-    public void setPlayer(@NonNull ExoPlayer exoPlayer) {
+    public void setPlayer(@NonNull ExoPlayer exoPlayer,
+                          @Nullable String title,
+                          @Nullable String artist,
+                          @Nullable String artworkUrl) {
         // Release any existing session before creating a new one.
         if (mediaSession != null) {
             mediaSession.release();
         }
         this.player = exoPlayer;
+
+        // Set media metadata (title, artist, artwork) on the current MediaItem so
+        // Media3's notification provider displays them. replaceMediaItem() updates
+        // metadata without interrupting playback.
+        if (exoPlayer.getMediaItemCount() > 0) {
+            MediaItem currentItem = exoPlayer.getCurrentMediaItem();
+            if (currentItem != null) {
+                MediaMetadata.Builder metaBuilder = new MediaMetadata.Builder();
+                if (title != null) metaBuilder.setTitle(title);
+                if (artist != null) metaBuilder.setArtist(artist);
+                if (artworkUrl != null) metaBuilder.setArtworkUri(Uri.parse(artworkUrl));
+                MediaItem updated = currentItem.buildUpon()
+                        .setMediaMetadata(metaBuilder.build())
+                        .build();
+                exoPlayer.replaceMediaItem(
+                        exoPlayer.getCurrentMediaItemIndex(), updated);
+            }
+        }
+
         mediaSession = new MediaSession.Builder(this, exoPlayer).build();
         // Explicitly add the session so MediaSessionService manages its notification.
         // Without this, the session created after onCreate() is never discovered by

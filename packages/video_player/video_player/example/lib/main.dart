@@ -508,9 +508,7 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
         'https://flutter.github.io/assets-for-api-docs/assets/videos/bee.mp4',
       ),
     );
-    _controller.addListener(() {
-      setState(() {});
-    });
+    _controller.addListener(() => setState(() {}));
     _controller.setLooping(true);
     _controller.initialize().then((_) {
       setState(() {});
@@ -533,144 +531,196 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
 
   @override
   Widget build(BuildContext context) {
+    final bool isPipActive = _controller.value.isPipActive;
+    final Size? pipSize = _controller.value.pipSize;
+
+    // TODO(you): pipSize workaround for Flutter viewport bug in PiP.
+    // Remove this block and uncomment the MediaQuery block below once
+    // https://github.com/flutter/flutter/pull/182326 lands in stable.
+    if (isPipActive && _controller.value.isInitialized && pipSize != null) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: SizedBox(
+          width: pipSize.width,
+          height: pipSize.height,
+          child: FittedBox(
+            child: SizedBox(
+              width: _controller.value.size.width,
+              height: _controller.value.size.height,
+              child: VideoPlayer(_controller),
+            ),
+          ),
+        ),
+      );
+    }
+    // // https://github.com/flutter/flutter/pull/182326 lands in stable.
+    // // MediaQuery-based PiP layout — requires Flutter with #182326 fix.
+    // final Size windowSize = MediaQuery.sizeOf(context);
+    // final bool isPipLayout = isPipActive || windowSize.shortestSide < 250;
+    //
+    // if (isPipLayout && _controller.value.isInitialized) {
+    //   return Scaffold(
+    //     backgroundColor: Colors.black,
+    //     body: AspectRatio(
+    //       aspectRatio: _controller.value.aspectRatio,
+    //       child: VideoPlayer(_controller),
+    //     ),
+    //   );
+    // }
+
     return Scaffold(
       appBar: AppBar(title: const Text('PiP & Background Playback')),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: <Widget>[
-            if (_controller.value.isInitialized)
-              AspectRatio(
-                aspectRatio: _controller.value.aspectRatio,
-                child: Stack(
-                  alignment: Alignment.bottomCenter,
-                  children: <Widget>[
-                    VideoPlayer(_controller),
-                    VideoProgressIndicator(_controller, allowScrubbing: true),
-                  ],
-                ),
-              )
-            else
-              const SizedBox(
-                height: 200,
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+      body: Column(
+        children: <Widget>[
+          if (_controller.value.isInitialized)
+            AspectRatio(
+              aspectRatio: _controller.value.aspectRatio,
+              child: Stack(
+                alignment: Alignment.bottomCenter,
                 children: <Widget>[
-                  // Play/Pause
-                  Row(
-                    children: <Widget>[
-                      IconButton(
-                        icon: Icon(
-                          _controller.value.isPlaying
-                              ? Icons.pause
-                              : Icons.play_arrow,
-                        ),
-                        onPressed: () {
-                          _controller.value.isPlaying
-                              ? _controller.pause()
-                              : _controller.play();
-                        },
-                      ),
-                      Text(
-                        _controller.value.isPlaying ? 'Playing' : 'Paused',
-                      ),
-                    ],
-                  ),
-                  const Divider(),
-
-                  // PiP section
-                  Text(
-                    'Picture-in-Picture',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text('Supported: $_pipSupported'),
-                  Text('Active: ${_controller.value.isPipActive}'),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: <Widget>[
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.picture_in_picture),
-                        label: const Text('Enter PiP'),
-                        onPressed:
-                            _pipSupported ? () => _controller.enterPip() : null,
-                      ),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.fullscreen_exit),
-                        label: const Text('Exit PiP'),
-                        onPressed: _controller.value.isPipActive
-                            ? () => _controller.exitPip()
-                            : null,
-                      ),
-                      ElevatedButton.icon(
-                        icon: Icon(_autoEnterPip
-                            ? Icons.auto_awesome
-                            : Icons.auto_awesome_outlined),
-                        label: Text(_autoEnterPip
-                            ? 'Disable Auto-PiP'
-                            : 'Enable Auto-PiP'),
-                        onPressed: _pipSupported
-                            ? () {
-                                final newValue = !_autoEnterPip;
-                                _controller.setAutoEnterPip(newValue);
-                                setState(() => _autoEnterPip = newValue);
-                              }
-                            : null,
-                      ),
-                    ],
-                  ),
-                  const Divider(),
-
-                  // Background playback section
-                  Text(
-                    'Background Playback',
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Enabled: ${_controller.value.isPlayingInBackground}',
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    children: <Widget>[
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.volume_up),
-                        label: const Text('Enable Background'),
-                        onPressed: !_controller.value.isPlayingInBackground
-                            ? () => _controller.enableBackgroundPlayback(
-                                  mediaInfo: const MediaInfo(
-                                    title: 'Bumblebee Video',
-                                    artist: 'Flutter',
-                                  ),
-                                )
-                            : null,
-                      ),
-                      ElevatedButton.icon(
-                        icon: const Icon(Icons.volume_off),
-                        label: const Text('Disable Background'),
-                        onPressed: _controller.value.isPlayingInBackground
-                            ? () => _controller.disableBackgroundPlayback()
-                            : null,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Tip: Enable background playback, start playing, then '
-                    'press the home button. Audio should continue playing.',
-                    style: TextStyle(fontStyle: FontStyle.italic, fontSize: 12),
-                  ),
+                  VideoPlayer(_controller),
+                  VideoProgressIndicator(_controller, allowScrubbing: true),
                 ],
               ),
+            )
+          else
+            const SizedBox(
+              height: 200,
+              child: Center(child: CircularProgressIndicator()),
             ),
-          ],
-        ),
+          Expanded(
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    // Play/Pause
+                    Row(
+                      children: <Widget>[
+                        IconButton(
+                          icon: Icon(
+                            _controller.value.isPlaying
+                                ? Icons.pause
+                                : Icons.play_arrow,
+                          ),
+                          onPressed: () {
+                            _controller.value.isPlaying
+                                ? _controller.pause()
+                                : _controller.play();
+                          },
+                        ),
+                        Text(
+                          _controller.value.isPlaying ? 'Playing' : 'Paused',
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+
+                    // PiP section
+                    Text(
+                      'Picture-in-Picture',
+                      style: Theme
+                          .of(context)
+                          .textTheme
+                          .titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Supported: $_pipSupported'),
+                    Text('Active: ${_controller.value.isPipActive}'),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: <Widget>[
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.picture_in_picture),
+                          label: const Text('Enter PiP'),
+                          onPressed: _pipSupported
+                              ? () => _controller.enterPip()
+                              : null,
+                        ),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.fullscreen_exit),
+                          label: const Text('Exit PiP'),
+                          onPressed: _controller.value.isPipActive
+                              ? () => _controller.exitPip()
+                              : null,
+                        ),
+                        ElevatedButton.icon(
+                          icon: Icon(_autoEnterPip
+                              ? Icons.auto_awesome
+                              : Icons.auto_awesome_outlined),
+                          label: Text(_autoEnterPip
+                              ? 'Disable Auto-PiP'
+                              : 'Enable Auto-PiP'),
+                          onPressed: _pipSupported
+                              ? () {
+                            final newValue = !_autoEnterPip;
+                            _controller.setAutoEnterPip(newValue);
+                            setState(() => _autoEnterPip = newValue);
+                          }
+                              : null,
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+
+                    // Background playback section
+                    Text(
+                      'Background Playback',
+                      style: Theme
+                          .of(context)
+                          .textTheme
+                          .titleMedium,
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Enabled: ${_controller.value.isPlayingInBackground}',
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: <Widget>[
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.volume_up),
+                          label: const Text('Enable Background'),
+                          onPressed: !_controller.value.isPlayingInBackground
+                              ? () =>
+                              _controller.enableBackgroundPlayback(
+                                mediaInfo: const MediaInfo(
+                                  title: 'Bumblebee Video',
+                                  artist: 'Flutter',
+                                  artworkUrl:
+                                      'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+                                ),
+                              )
+                              : null,
+                        ),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.volume_off),
+                          label: const Text('Disable Background'),
+                          onPressed: _controller.value.isPlayingInBackground
+                              ? () => _controller.disableBackgroundPlayback()
+                              : null,
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    const Text(
+                      'Tip: Enable background playback, start playing, '
+                          'then press the home button. Audio should continue '
+                          'playing.',
+                      style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
