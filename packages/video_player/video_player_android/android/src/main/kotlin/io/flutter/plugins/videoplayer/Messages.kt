@@ -272,54 +272,37 @@ data class AudioTrackChangedEvent (
  * Generated class from Pigeon that represents data sent in messages.
  */
 data class PipStateEvent (
-  val isInPipMode: Boolean
+  val isInPipMode: Boolean,
+  /**
+   * Whether PiP was dismissed by the user (X button) as opposed to
+   * expanded back to full screen. Only meaningful when [isInPipMode] is false.
+   */
+  val wasDismissed: Boolean,
+  /** The window width in dp at the time of the PiP state change. */
+  val windowWidth: Long,
+  /** The window height in dp at the time of the PiP state change. */
+  val windowHeight: Long
 ) : PlatformVideoEvent()
  {
   companion object {
     fun fromList(pigeonVar_list: List<Any?>): PipStateEvent {
       val isInPipMode = pigeonVar_list[0] as Boolean
-      return PipStateEvent(isInPipMode)
+      val wasDismissed = pigeonVar_list[1] as Boolean
+      val windowWidth = pigeonVar_list[2] as Long
+      val windowHeight = pigeonVar_list[3] as Long
+      return PipStateEvent(isInPipMode, wasDismissed, windowWidth, windowHeight)
     }
   }
   fun toList(): List<Any?> {
     return listOf(
       isInPipMode,
+      wasDismissed,
+      windowWidth,
+      windowHeight,
     )
   }
   override fun equals(other: Any?): Boolean {
     if (other !is PipStateEvent) {
-      return false
-    }
-    if (this === other) {
-      return true
-    }
-    return MessagesPigeonUtils.deepEquals(toList(), other.toList())  }
-
-  override fun hashCode(): Int = toList().hashCode()
-}
-
-/**
- * Sent when background playback state changes.
- *
- * Generated class from Pigeon that represents data sent in messages.
- */
-data class BackgroundPlaybackEvent (
-  val isPlayingInBackground: Boolean
-) : PlatformVideoEvent()
- {
-  companion object {
-    fun fromList(pigeonVar_list: List<Any?>): BackgroundPlaybackEvent {
-      val isPlayingInBackground = pigeonVar_list[0] as Boolean
-      return BackgroundPlaybackEvent(isPlayingInBackground)
-    }
-  }
-  fun toList(): List<Any?> {
-    return listOf(
-      isPlayingInBackground,
-    )
-  }
-  override fun equals(other: Any?): Boolean {
-    if (other !is BackgroundPlaybackEvent) {
       return false
     }
     if (this === other) {
@@ -681,45 +664,40 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
       }
       136.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          BackgroundPlaybackEvent.fromList(it)
+          PlatformVideoViewCreationParams.fromList(it)
         }
       }
       137.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PlatformVideoViewCreationParams.fromList(it)
+          CreationOptions.fromList(it)
         }
       }
       138.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          CreationOptions.fromList(it)
+          TexturePlayerIds.fromList(it)
         }
       }
       139.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          TexturePlayerIds.fromList(it)
+          PlaybackState.fromList(it)
         }
       }
       140.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          PlaybackState.fromList(it)
+          AudioTrackMessage.fromList(it)
         }
       }
       141.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          AudioTrackMessage.fromList(it)
+          ExoPlayerAudioTrackData.fromList(it)
         }
       }
       142.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
-          ExoPlayerAudioTrackData.fromList(it)
-        }
-      }
-      143.toByte() -> {
-        return (readValue(buffer) as? List<Any?>)?.let {
           NativeAudioTrackData.fromList(it)
         }
       }
-      144.toByte() -> {
+      143.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
           PlatformMediaInfo.fromList(it)
         }
@@ -757,40 +735,36 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
         stream.write(135)
         writeValue(stream, value.toList())
       }
-      is BackgroundPlaybackEvent -> {
+      is PlatformVideoViewCreationParams -> {
         stream.write(136)
         writeValue(stream, value.toList())
       }
-      is PlatformVideoViewCreationParams -> {
+      is CreationOptions -> {
         stream.write(137)
         writeValue(stream, value.toList())
       }
-      is CreationOptions -> {
+      is TexturePlayerIds -> {
         stream.write(138)
         writeValue(stream, value.toList())
       }
-      is TexturePlayerIds -> {
+      is PlaybackState -> {
         stream.write(139)
         writeValue(stream, value.toList())
       }
-      is PlaybackState -> {
+      is AudioTrackMessage -> {
         stream.write(140)
         writeValue(stream, value.toList())
       }
-      is AudioTrackMessage -> {
+      is ExoPlayerAudioTrackData -> {
         stream.write(141)
         writeValue(stream, value.toList())
       }
-      is ExoPlayerAudioTrackData -> {
+      is NativeAudioTrackData -> {
         stream.write(142)
         writeValue(stream, value.toList())
       }
-      is NativeAudioTrackData -> {
-        stream.write(143)
-        writeValue(stream, value.toList())
-      }
       is PlatformMediaInfo -> {
-        stream.write(144)
+        stream.write(143)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)

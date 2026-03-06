@@ -26,4 +26,6 @@ public interface VideoPlayerCallbacks {
   void onIsPlayingStateUpdate(boolean isPlaying);
 
   void onAudioTrackChanged(@Nullable String selectedTrackId);
+
+  void onPipStateChanged(boolean isInPipMode, boolean wasDismissed, int widthDp, int heightDp);
 }

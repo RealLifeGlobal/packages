@@ -25,6 +25,21 @@ public class PipHandler {
         this.activity = activity;
     }
 
+    /**
+     * Sets the listener that receives PiP state changes.
+     *
+     * <p>Registers the listener with {@link PipCallbackHelper} so the Activity's
+     * {@code onPictureInPictureModeChanged} callback reaches the plugin.
+     */
+    public void setPipStateListener(@NonNull PipCallbackHelper.PipStateListener listener) {
+        PipCallbackHelper.setListener(listener);
+    }
+
+    /** Returns whether PiP callbacks have been configured by the Activity. */
+    public boolean isPipCallbackConfigured() {
+        return PipCallbackHelper.isConfigured();
+    }
+
     public void setActivity(@Nullable Activity activity) {
         this.activity = activity;
         // Invalidate cache when activity changes.
@@ -43,6 +58,11 @@ public class PipHandler {
 
     public void enterPip() {
         if (activity == null || !isPipSupported()) return;
+        if (!isPipCallbackConfigured()) {
+            Log.w(TAG, "PiP callbacks not configured. Extend VideoPlayerActivity or call "
+                    + "PipCallbackHelper.onPictureInPictureModeChanged() from your Activity "
+                    + "to receive PiP state events in Dart.");
+        }
         try {
             PictureInPictureParams.Builder builder = newPipParamsBuilder();
             activity.enterPictureInPictureMode(builder.build());

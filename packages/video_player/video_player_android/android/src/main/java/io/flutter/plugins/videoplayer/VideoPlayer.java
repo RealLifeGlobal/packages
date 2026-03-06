@@ -233,6 +233,10 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
         trackSelector.buildUponParameters().setOverrideForType(override).build());
   }
 
+  public void notifyPipStateChanged(boolean isInPipMode, boolean wasDismissed, int widthDp, int heightDp) {
+    videoPlayerEvents.onPipStateChanged(isInPipMode, wasDismissed, widthDp, heightDp);
+  }
+
   public void dispose() {
     if (disposeHandler != null) {
       disposeHandler.onDispose();

@@ -318,7 +318,8 @@ class VideoEvent {
     this.buffered,
     this.isPlaying,
     this.isPipActive,
-    this.isPlayingInBackground,
+    this.wasDismissed,
+    this.pipWindowSize,
   });
 
   /// The type of the event.
@@ -354,10 +355,19 @@ class VideoEvent {
   /// Only used if [eventType] is [VideoEventType.pipStateChanged].
   final bool? isPipActive;
 
-  /// Whether the video is currently playing in the background.
+  /// Whether PiP was dismissed by the user (e.g. the X button) as opposed to
+  /// expanded back to full screen.
   ///
-  /// Only used if [eventType] is [VideoEventType.backgroundPlaybackStateChanged].
-  final bool? isPlayingInBackground;
+  /// Only used if [eventType] is [VideoEventType.pipStateChanged] and
+  /// [isPipActive] is false.
+  final bool? wasDismissed;
+
+  /// The window size (in dp) at the time of a PiP state change.
+  ///
+  /// Only used if [eventType] is [VideoEventType.pipStateChanged].
+  /// When [isPipActive] is true, this is the PiP window size.
+  /// When [isPipActive] is false, this is the restored window size.
+  final Size? pipWindowSize;
 
   @override
   bool operator ==(Object other) {
@@ -371,7 +381,8 @@ class VideoEvent {
             listEquals(buffered, other.buffered) &&
             isPlaying == other.isPlaying &&
             isPipActive == other.isPipActive &&
-            isPlayingInBackground == other.isPlayingInBackground;
+            wasDismissed == other.wasDismissed &&
+            pipWindowSize == other.pipWindowSize;
   }
 
   @override
@@ -383,7 +394,8 @@ class VideoEvent {
     buffered,
     isPlaying,
     isPipActive,
-    isPlayingInBackground,
+    wasDismissed,
+    pipWindowSize,
   );
 }
 
@@ -417,9 +429,6 @@ enum VideoEventType {
 
   /// The PiP state has changed.
   pipStateChanged,
-
-  /// The background playback state has changed.
-  backgroundPlaybackStateChanged,
 
   /// An unknown event has been received.
   unknown,

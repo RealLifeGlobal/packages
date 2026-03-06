@@ -270,13 +270,29 @@ class AudioTrackChangedEvent extends PlatformVideoEvent {
 class PipStateEvent extends PlatformVideoEvent {
   PipStateEvent({
     required this.isInPipMode,
+    required this.wasDismissed,
+    required this.windowWidth,
+    required this.windowHeight,
   });
 
   bool isInPipMode;
 
+  /// Whether PiP was dismissed by the user (X button) as opposed to
+  /// expanded back to full screen. Only meaningful when [isInPipMode] is false.
+  bool wasDismissed;
+
+  /// The window width in dp at the time of the PiP state change.
+  int windowWidth;
+
+  /// The window height in dp at the time of the PiP state change.
+  int windowHeight;
+
   List<Object?> _toList() {
     return <Object?>[
       isInPipMode,
+      wasDismissed,
+      windowWidth,
+      windowHeight,
     ];
   }
 
@@ -287,6 +303,9 @@ class PipStateEvent extends PlatformVideoEvent {
     result as List<Object?>;
     return PipStateEvent(
       isInPipMode: result[0]! as bool,
+      wasDismissed: result[1]! as bool,
+      windowWidth: result[2]! as int,
+      windowHeight: result[3]! as int,
     );
   }
 
@@ -294,48 +313,6 @@ class PipStateEvent extends PlatformVideoEvent {
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
   bool operator ==(Object other) {
     if (other is! PipStateEvent || other.runtimeType != runtimeType) {
-      return false;
-    }
-    if (identical(this, other)) {
-      return true;
-    }
-    return _deepEquals(encode(), other.encode());
-  }
-
-  @override
-  // ignore: avoid_equals_and_hash_code_on_mutable_classes
-  int get hashCode => Object.hashAll(_toList())
-;
-}
-
-/// Sent when background playback state changes.
-class BackgroundPlaybackEvent extends PlatformVideoEvent {
-  BackgroundPlaybackEvent({
-    required this.isPlayingInBackground,
-  });
-
-  bool isPlayingInBackground;
-
-  List<Object?> _toList() {
-    return <Object?>[
-      isPlayingInBackground,
-    ];
-  }
-
-  Object encode() {
-    return _toList();  }
-
-  static BackgroundPlaybackEvent decode(Object result) {
-    result as List<Object?>;
-    return BackgroundPlaybackEvent(
-      isPlayingInBackground: result[0]! as bool,
-    );
-  }
-
-  @override
-  // ignore: avoid_equals_and_hash_code_on_mutable_classes
-  bool operator ==(Object other) {
-    if (other is! BackgroundPlaybackEvent || other.runtimeType != runtimeType) {
       return false;
     }
     if (identical(this, other)) {
@@ -829,32 +806,29 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is PipStateEvent) {
       buffer.putUint8(135);
       writeValue(buffer, value.encode());
-    }    else if (value is BackgroundPlaybackEvent) {
+    }    else if (value is PlatformVideoViewCreationParams) {
       buffer.putUint8(136);
       writeValue(buffer, value.encode());
-    }    else if (value is PlatformVideoViewCreationParams) {
+    }    else if (value is CreationOptions) {
       buffer.putUint8(137);
       writeValue(buffer, value.encode());
-    }    else if (value is CreationOptions) {
+    }    else if (value is TexturePlayerIds) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    }    else if (value is TexturePlayerIds) {
+    }    else if (value is PlaybackState) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    }    else if (value is PlaybackState) {
+    }    else if (value is AudioTrackMessage) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
-    }    else if (value is AudioTrackMessage) {
+    }    else if (value is ExoPlayerAudioTrackData) {
       buffer.putUint8(141);
       writeValue(buffer, value.encode());
-    }    else if (value is ExoPlayerAudioTrackData) {
+    }    else if (value is NativeAudioTrackData) {
       buffer.putUint8(142);
       writeValue(buffer, value.encode());
-    }    else if (value is NativeAudioTrackData) {
-      buffer.putUint8(143);
-      writeValue(buffer, value.encode());
     }    else if (value is PlatformMediaInfo) {
-      buffer.putUint8(144);
+      buffer.putUint8(143);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -881,22 +855,20 @@ class _PigeonCodec extends StandardMessageCodec {
       case 135:
         return PipStateEvent.decode(readValue(buffer)!);
       case 136:
-        return BackgroundPlaybackEvent.decode(readValue(buffer)!);
-      case 137:
         return PlatformVideoViewCreationParams.decode(readValue(buffer)!);
-      case 138:
+      case 137:
         return CreationOptions.decode(readValue(buffer)!);
-      case 139:
+      case 138:
         return TexturePlayerIds.decode(readValue(buffer)!);
-      case 140:
+      case 139:
         return PlaybackState.decode(readValue(buffer)!);
-      case 141:
+      case 140:
         return AudioTrackMessage.decode(readValue(buffer)!);
-      case 142:
+      case 141:
         return ExoPlayerAudioTrackData.decode(readValue(buffer)!);
-      case 143:
+      case 142:
         return NativeAudioTrackData.decode(readValue(buffer)!);
-      case 144:
+      case 143:
         return PlatformMediaInfo.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);

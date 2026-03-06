@@ -8,7 +8,7 @@
       android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|screenLayout|locale|layoutDirection"
       android:hardwareAccelerated="true"
       android:exported="true"
-      android:name="io.flutter.embedding.android.FlutterActivity"
+      android:name="io.flutter.plugins.videoplayer.VideoPlayerActivity"
       android:theme="@style/LaunchTheme"
       android:supportsPictureInPicture="true"
       android:windowSoftInputMode="adjustResize">

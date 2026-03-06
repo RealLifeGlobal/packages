@@ -63,11 +63,16 @@ class AudioTrackChangedEvent extends PlatformVideoEvent {
 /// Sent when PiP state changes.
 class PipStateEvent extends PlatformVideoEvent {
   late final bool isInPipMode;
-}
 
-/// Sent when background playback state changes.
-class BackgroundPlaybackEvent extends PlatformVideoEvent {
-  late final bool isPlayingInBackground;
+  /// Whether PiP was dismissed by the user (X button) as opposed to
+  /// expanded back to full screen. Only meaningful when [isInPipMode] is false.
+  late final bool wasDismissed;
+
+  /// The window width in dp at the time of the PiP state change.
+  late final int windowWidth;
+
+  /// The window height in dp at the time of the PiP state change.
+  late final int windowHeight;
 }
 
 /// Information passed to the platform view creation.

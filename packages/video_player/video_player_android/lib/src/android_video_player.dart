@@ -536,13 +536,8 @@ class _PlayerInstance {
           VideoEvent(
             eventType: VideoEventType.pipStateChanged,
             isPipActive: event.isInPipMode,
-          ),
-        );
-      case BackgroundPlaybackEvent _:
-        _eventStreamController.add(
-          VideoEvent(
-            eventType: VideoEventType.backgroundPlaybackStateChanged,
-            isPlayingInBackground: event.isPlayingInBackground,
+            wasDismissed: event.wasDismissed,
+            pipWindowSize: Size(event.windowWidth.toDouble(), event.windowHeight.toDouble()),
           ),
         );
     }
