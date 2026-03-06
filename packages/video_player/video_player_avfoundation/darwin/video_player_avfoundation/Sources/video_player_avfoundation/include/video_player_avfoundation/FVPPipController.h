@@ -27,6 +27,7 @@ NS_ASSUME_NONNULL_BEGIN
 - (instancetype)initWithPlayerLayer:(AVPlayerLayer *)playerLayer;
 - (void)startPip;
 - (void)stopPip;
+- (void)setCanStartAutomatically:(BOOL)canStart;
 @end
 
 NS_ASSUME_NONNULL_END

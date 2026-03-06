@@ -233,9 +233,8 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
-  Future<void> setAutoEnterPip(int playerId, bool enabled) async {
-    // iOS PiP auto-enter is managed by the system when canStartPictureInPictureAutomaticallyFromInline
-    // is set on the PiP controller. This is not currently exposed.
+  Future<void> setAutoEnterPip(int playerId, bool enabled) {
+    return _api.setAutoPip(playerId, enabled);
   }
 
   @override

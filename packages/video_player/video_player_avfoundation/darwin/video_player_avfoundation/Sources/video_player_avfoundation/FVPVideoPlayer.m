@@ -73,6 +73,8 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
   BOOL _listenersRegistered;
 }
 
+@synthesize playerLayer = _playerLayer;
+
 // Lazily create the player layer only when PiP support is actually needed.
 - (AVPlayerLayer *)playerLayer {
   if (!_playerLayer) {

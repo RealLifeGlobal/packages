@@ -4,9 +4,13 @@
 
 #import "./include/video_player_avfoundation/FVPPipController.h"
 
+static void *pipPossibleContext = &pipPossibleContext;
+
 @implementation FVPPipController {
   AVPictureInPictureController *_pipController;
   AVPlayerLayer *_playerLayer;
+  BOOL _pendingStart;
+  BOOL _observingPossible;
 }
 
 + (BOOL)isPipSupported {
@@ -30,10 +34,21 @@
     if ([AVPictureInPictureController isPictureInPictureSupported]) {
       _pipController = [[AVPictureInPictureController alloc] initWithPlayerLayer:playerLayer];
       _pipController.delegate = self;
+      [_pipController addObserver:self
+                       forKeyPath:@"pictureInPicturePossible"
+                          options:NSKeyValueObservingOptionNew
+                          context:pipPossibleContext];
+      _observingPossible = YES;
     }
 #endif
   }
   return self;
+}
+
+- (void)dealloc {
+  if (_observingPossible) {
+    [_pipController removeObserver:self forKeyPath:@"pictureInPicturePossible" context:pipPossibleContext];
+  }
 }
 
 - (BOOL)isPipActive {
@@ -47,17 +62,44 @@
 - (void)startPip {
 #if TARGET_OS_IOS
   if (_pipController && !_pipController.isPictureInPictureActive) {
-    [_pipController startPictureInPicture];
+    if (_pipController.isPictureInPicturePossible) {
+      [_pipController startPictureInPicture];
+    } else {
+      _pendingStart = YES;
+    }
   }
 #endif
 }
 
 - (void)stopPip {
 #if TARGET_OS_IOS
+  _pendingStart = NO;
   if (_pipController && _pipController.isPictureInPictureActive) {
     [_pipController stopPictureInPicture];
   }
 #endif
+}
+
+- (void)setCanStartAutomatically:(BOOL)canStart {
+#if TARGET_OS_IOS
+  if (@available(iOS 14.2, *)) {
+    _pipController.canStartPictureInPictureAutomaticallyFromInline = canStart;
+  }
+#endif
+}
+
+#pragma mark - KVO
+
+- (void)observeValueForKeyPath:(NSString *)keyPath
+                      ofObject:(id)object
+                        change:(NSDictionary<NSKeyValueChangeKey, id> *)change
+                       context:(void *)context {
+  if (context == pipPossibleContext) {
+    if (_pendingStart && _pipController.isPictureInPicturePossible) {
+      _pendingStart = NO;
+      [_pipController startPictureInPicture];
+    }
+  }
 }
 
 #pragma mark - AVPictureInPictureControllerDelegate

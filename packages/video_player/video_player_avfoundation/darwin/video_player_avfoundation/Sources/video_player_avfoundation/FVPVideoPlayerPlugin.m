@@ -344,16 +344,25 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
 - (void)enableBackgroundPlaybackForPlayer:(NSInteger)playerId
                                 mediaInfo:(nullable FVPPlatformMediaInfo *)mediaInfo
                                     error:(FlutterError *_Nullable *_Nonnull)error {
+  NSLog(@"video_player: [BG-PLUGIN] enableBackgroundPlayback called for player %ld", (long)playerId);
   FVPVideoPlayer *player = [self playerForId:playerId error:error];
-  if (!player) return;
+  if (!player) {
+    NSLog(@"video_player: [BG-PLUGIN] ERROR: player %ld not found!", (long)playerId);
+    return;
+  }
+  NSLog(@"video_player: [BG-PLUGIN] player found, rate=%f, currentItem=%@",
+        player.player.rate, player.player.currentItem);
   if (!player.backgroundAudioHandler) {
     player.backgroundAudioHandler =
         [[FVPBackgroundAudioHandler alloc] initWithPlayer:player.player];
+    NSLog(@"video_player: [BG-PLUGIN] Created new FVPBackgroundAudioHandler");
   }
   [player.backgroundAudioHandler enableWithTitle:mediaInfo.title
                                           artist:mediaInfo.artist
                                       artworkUrl:mediaInfo.artworkUrl
                                       durationMs:mediaInfo.durationMs];
+  NSLog(@"video_player: [BG-PLUGIN] enableWithTitle completed, handler.isEnabled=%d",
+        player.backgroundAudioHandler.isEnabled);
 }
 
 - (void)disableBackgroundPlaybackForPlayer:(NSInteger)playerId
@@ -361,6 +370,18 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
   FVPVideoPlayer *player = [self playerForId:playerId error:error];
   if (!player) return;
   [player.backgroundAudioHandler disable];
+}
+
+- (void)setAutoPipForPlayer:(NSInteger)playerId
+                    enabled:(BOOL)enabled
+                      error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) return;
+  if (!player.pipController) {
+    player.pipController = [[FVPPipController alloc] initWithPlayerLayer:player.playerLayer];
+    player.pipController.delegate = player;
+  }
+  [player.pipController setCanStartAutomatically:enabled];
 }
 
 /// Returns the AVPlayerItem corresponding to the given player creation options.

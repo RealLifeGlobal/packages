@@ -91,6 +91,8 @@ abstract class AVFoundationVideoPlayerApi {
   void enableBackgroundPlayback(int playerId, PlatformMediaInfo? mediaInfo);
   @ObjCSelector('disableBackgroundPlaybackForPlayer:')
   void disableBackgroundPlayback(int playerId);
+  @ObjCSelector('setAutoPipForPlayer:enabled:')
+  void setAutoPip(int playerId, bool enabled);
 }
 
 @HostApi()

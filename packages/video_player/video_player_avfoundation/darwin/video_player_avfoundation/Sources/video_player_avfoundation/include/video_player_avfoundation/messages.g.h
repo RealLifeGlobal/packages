@@ -93,6 +93,7 @@ NSObject<FlutterMessageCodec> *FVPGetMessagesCodec(void);
 - (nullable NSNumber *)isPipActiveForPlayer:(NSInteger)playerId error:(FlutterError *_Nullable *_Nonnull)error;
 - (void)enableBackgroundPlaybackForPlayer:(NSInteger)playerId mediaInfo:(nullable FVPPlatformMediaInfo *)mediaInfo error:(FlutterError *_Nullable *_Nonnull)error;
 - (void)disableBackgroundPlaybackForPlayer:(NSInteger)playerId error:(FlutterError *_Nullable *_Nonnull)error;
+- (void)setAutoPipForPlayer:(NSInteger)playerId enabled:(BOOL)enabled error:(FlutterError *_Nullable *_Nonnull)error;
 @end
 
 extern void SetUpFVPAVFoundationVideoPlayerApi(id<FlutterBinaryMessenger> binaryMessenger, NSObject<FVPAVFoundationVideoPlayerApi> *_Nullable api);
