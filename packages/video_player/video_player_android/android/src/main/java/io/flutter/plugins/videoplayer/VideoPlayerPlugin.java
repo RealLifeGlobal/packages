@@ -16,6 +16,7 @@ import androidx.annotation.OptIn;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.MediaSessionService;
 import androidx.media3.exoplayer.ExoPlayer;
+import io.flutter.plugins.videoplayer.pip.PipCallbackHelper;
 import io.flutter.FlutterInjector;
 import io.flutter.Log;
 import io.flutter.embedding.engine.plugins.FlutterPlugin;
