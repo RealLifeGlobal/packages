@@ -19,6 +19,8 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import io.flutter.view.TextureRegistry.SurfaceProducer;
 import java.util.ArrayList;
@@ -66,6 +68,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
       @NonNull ExoPlayerProvider exoPlayerProvider) {
     this.videoPlayerEvents = events;
     this.surfaceProducer = surfaceProducer;
+    this.maxPlayerRecoveryAttempts = options.maxPlayerRecoveryAttempts;
     exoPlayer = exoPlayerProvider.get();
 
     // Try to get the track selector from the ExoPlayer if it was built with one
@@ -76,12 +79,15 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
     exoPlayer.setMediaItem(mediaItem);
     exoPlayer.prepare();
     exoPlayer.addListener(createExoPlayerEventListener(exoPlayer, surfaceProducer));
+    exoPlayer.addAnalyticsListener(createAnalyticsListener());
     setAudioAttributes(exoPlayer, options.mixWithOthers);
   }
 
   public void setDisposeHandler(@Nullable DisposeHandler handler) {
     disposeHandler = handler;
   }
+
+  protected int maxPlayerRecoveryAttempts = 3;
 
   @NonNull
   protected abstract ExoPlayerEventListener createExoPlayerEventListener(
@@ -231,6 +237,115 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
     // Apply the track selection override
     trackSelector.setParameters(
         trackSelector.buildUponParameters().setOverrideForType(override).build());
+  }
+
+  // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
+  @UnstableApi
+  @Override
+  public @NonNull List<PlatformVideoQuality> getAvailableQualities() {
+    List<PlatformVideoQuality> qualities = new ArrayList<>();
+    Tracks tracks = exoPlayer.getCurrentTracks();
+
+    for (int groupIndex = 0; groupIndex < tracks.getGroups().size(); groupIndex++) {
+      Tracks.Group group = tracks.getGroups().get(groupIndex);
+      if (group.getType() == C.TRACK_TYPE_VIDEO) {
+        for (int trackIndex = 0; trackIndex < group.length; trackIndex++) {
+          Format format = group.getTrackFormat(trackIndex);
+          boolean isSelected = group.isTrackSelected(trackIndex);
+
+          PlatformVideoQuality quality =
+              new PlatformVideoQuality(
+                  format.width > 0 ? (long) format.width : 0L,
+                  format.height > 0 ? (long) format.height : 0L,
+                  format.bitrate != Format.NO_VALUE ? (long) format.bitrate : 0L,
+                  format.codecs,
+                  isSelected);
+          qualities.add(quality);
+        }
+      }
+    }
+    return qualities;
+  }
+
+  // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
+  @UnstableApi
+  @Override
+  public @Nullable PlatformVideoQuality getCurrentQuality() {
+    Format format = exoPlayer.getVideoFormat();
+    if (format == null) {
+      return null;
+    }
+    PlatformVideoQuality quality =
+        new PlatformVideoQuality(
+            format.width > 0 ? (long) format.width : 0L,
+            format.height > 0 ? (long) format.height : 0L,
+            format.bitrate != Format.NO_VALUE ? (long) format.bitrate : 0L,
+            format.codecs,
+            /* isSelected= */ true);
+    return quality;
+  }
+
+  // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
+  @UnstableApi
+  @Override
+  public void setMaxBitrate(long maxBitrateBps) {
+    if (trackSelector == null) {
+      return;
+    }
+    trackSelector.setParameters(
+        trackSelector.buildUponParameters().setMaxVideoBitrate((int) maxBitrateBps).build());
+  }
+
+  // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
+  @UnstableApi
+  @Override
+  public void setMaxResolution(long width, long height) {
+    if (trackSelector == null) {
+      return;
+    }
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setMaxVideoSize((int) width, (int) height)
+            .build());
+  }
+
+  @UnstableApi
+  private AnalyticsListener createAnalyticsListener() {
+    return new AnalyticsListener() {
+      private int lastReportedWidth = -1;
+      private int lastReportedHeight = -1;
+      private int lastReportedBitrate = -1;
+
+      @Override
+      public void onDownstreamFormatChanged(
+          @NonNull EventTime eventTime, @NonNull MediaLoadData mediaLoadData) {
+        if (mediaLoadData.trackFormat == null) {
+          return;
+        }
+        // Accept TRACK_TYPE_VIDEO (demuxed) or TRACK_TYPE_DEFAULT (muxed HLS)
+        // when the format has video dimensions.
+        int trackType = mediaLoadData.trackType;
+        Format format = mediaLoadData.trackFormat;
+        boolean isVideoFormat = (trackType == C.TRACK_TYPE_VIDEO)
+            || (trackType == C.TRACK_TYPE_DEFAULT && format.width > 0 && format.height > 0);
+        if (!isVideoFormat) {
+          return;
+        }
+        int width = format.width > 0 ? format.width : 0;
+        int height = format.height > 0 ? format.height : 0;
+        int bitrate = format.bitrate != Format.NO_VALUE ? format.bitrate : 0;
+        // Skip duplicate events
+        if (width == lastReportedWidth && height == lastReportedHeight
+            && bitrate == lastReportedBitrate) {
+          return;
+        }
+        lastReportedWidth = width;
+        lastReportedHeight = height;
+        lastReportedBitrate = bitrate;
+        videoPlayerEvents.onVideoQualityChanged(width, height, bitrate, format.codecs);
+      }
+    };
   }
 
   public void notifyPipStateChanged(boolean isInPipMode, boolean wasDismissed, int widthDp, int heightDp) {

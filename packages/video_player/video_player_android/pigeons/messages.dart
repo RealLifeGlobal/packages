@@ -60,6 +60,16 @@ class AudioTrackChangedEvent extends PlatformVideoEvent {
   late final String? selectedTrackId;
 }
 
+/// Sent when the video quality changes (ABR switch).
+///
+/// Corresponds to ExoPlayer's AnalyticsListener.onDownstreamFormatChanged.
+class VideoQualityChangedEvent extends PlatformVideoEvent {
+  late final int width;
+  late final int height;
+  late final int bitrate;
+  late final String? codec;
+}
+
 /// Sent when PiP state changes.
 class PipStateEvent extends PlatformVideoEvent {
   late final bool isInPipMode;
@@ -88,6 +98,14 @@ class CreationOptions {
   PlatformVideoFormat? formatHint;
   Map<String, String> httpHeaders;
   String? userAgent;
+
+  /// Max retries per segment/load error before escalating.
+  /// Null means use ExoPlayer's default (5).
+  int? maxLoadRetries;
+
+  /// Max player-level recovery attempts for fatal network errors.
+  /// Null means use the default (3).
+  int? maxPlayerRecoveryAttempts;
 }
 
 class TexturePlayerIds {
@@ -171,6 +189,21 @@ class PlatformMediaInfo {
   int? durationMs;
 }
 
+/// Represents a video quality variant (resolution/bitrate combination).
+class PlatformVideoQuality {
+  PlatformVideoQuality({
+    required this.width,
+    required this.height,
+    required this.bitrate,
+    required this.isSelected,
+  });
+  int width;
+  int height;
+  int bitrate;
+  String? codec;
+  bool isSelected;
+}
+
 @HostApi()
 abstract class AndroidVideoPlayerApi {
   void initialize();
@@ -188,6 +221,13 @@ abstract class AndroidVideoPlayerApi {
   void enterPip(int playerId);
   bool isPipActive();
   void setAutoEnterPip(bool enabled);
+
+  // Cache control methods
+  void setCacheMaxSize(int maxSizeBytes);
+  void clearCache();
+  int getCacheSize();
+  bool isCacheEnabled();
+  void setCacheEnabled(bool enabled);
 }
 
 @HostApi()
@@ -221,6 +261,20 @@ abstract class VideoPlayerInstanceApi {
 
   /// Selects which audio track is chosen for playback from its [groupIndex] and [trackIndex]
   void selectAudioTrack(int groupIndex, int trackIndex);
+
+  // ABR (Adaptive Bitrate) control methods
+
+  /// Returns the available video quality variants.
+  List<PlatformVideoQuality> getAvailableQualities();
+
+  /// Returns the currently playing video quality, or null if unknown.
+  PlatformVideoQuality? getCurrentQuality();
+
+  /// Sets the maximum video bitrate in bits per second.
+  void setMaxBitrate(int maxBitrateBps);
+
+  /// Sets the maximum video resolution.
+  void setMaxResolution(int width, int height);
 }
 
 @EventChannelApi()

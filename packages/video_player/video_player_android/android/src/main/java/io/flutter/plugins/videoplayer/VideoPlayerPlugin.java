@@ -87,6 +87,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
     flutterState = null;
     PipCallbackHelper.setListener(null);
     onDestroy();
+    VideoCacheManager.release();
   }
 
   // ActivityAware implementation
@@ -210,10 +211,25 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
     disposeAllPlayers();
   }
 
+  private VideoPlayerOptions playerOptionsFromCreationOptions(@NonNull CreationOptions options) {
+    VideoPlayerOptions playerOptions = new VideoPlayerOptions();
+    playerOptions.mixWithOthers = sharedOptions.mixWithOthers;
+    Long maxLoadRetries = options.getMaxLoadRetries();
+    if (maxLoadRetries != null) {
+      playerOptions.maxLoadRetries = maxLoadRetries.intValue();
+    }
+    Long maxPlayerRecoveryAttempts = options.getMaxPlayerRecoveryAttempts();
+    if (maxPlayerRecoveryAttempts != null) {
+      playerOptions.maxPlayerRecoveryAttempts = maxPlayerRecoveryAttempts.intValue();
+    }
+    return playerOptions;
+  }
+
   @OptIn(markerClass = UnstableApi.class)
   @Override
   public long createForPlatformView(@NonNull CreationOptions options) {
     final VideoAsset videoAsset = videoAssetWithOptions(options);
+    final VideoPlayerOptions playerOptions = playerOptionsFromCreationOptions(options);
 
     long id = nextPlayerIdentifier++;
     final String streamInstance = Long.toString(id);
@@ -222,7 +238,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
             flutterState.applicationContext,
             VideoPlayerEventCallbacks.bindTo(flutterState.binaryMessenger, streamInstance),
             videoAsset,
-            sharedOptions);
+            playerOptions);
 
     registerPlayerInstance(videoPlayer, id);
     return id;
@@ -232,6 +248,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
   @Override
   public @NonNull TexturePlayerIds createForTextureView(@NonNull CreationOptions options) {
     final VideoAsset videoAsset = videoAssetWithOptions(options);
+    final VideoPlayerOptions playerOptions = playerOptionsFromCreationOptions(options);
 
     long id = nextPlayerIdentifier++;
     final String streamInstance = Long.toString(id);
@@ -242,7 +259,7 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
             VideoPlayerEventCallbacks.bindTo(flutterState.binaryMessenger, streamInstance),
             handle,
             videoAsset,
-            sharedOptions);
+            playerOptions);
 
     registerPlayerInstance(videoPlayer, id);
     return new TexturePlayerIds(id, handle.id());
@@ -376,6 +393,39 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
   @Override
   public void setAutoEnterPip(boolean enabled) {
     pipHandler.setAutoEnterPip(enabled);
+  }
+
+  // Cache control methods
+  @OptIn(markerClass = UnstableApi.class)
+  @Override
+  public void setCacheMaxSize(long maxSizeBytes) {
+    VideoCacheManager.setMaxCacheSize(maxSizeBytes);
+  }
+
+  @OptIn(markerClass = UnstableApi.class)
+  @Override
+  public void clearCache() {
+    if (flutterState != null) {
+      VideoCacheManager.clearCache(flutterState.applicationContext);
+    }
+  }
+
+  @OptIn(markerClass = UnstableApi.class)
+  @Override
+  public long getCacheSize() {
+    return VideoCacheManager.getCacheSize();
+  }
+
+  @OptIn(markerClass = UnstableApi.class)
+  @Override
+  public boolean isCacheEnabled() {
+    return VideoCacheManager.isEnabled();
+  }
+
+  @OptIn(markerClass = UnstableApi.class)
+  @Override
+  public void setCacheEnabled(boolean enabled) {
+    VideoCacheManager.setEnabled(enabled);
   }
 
   private interface KeyForAssetFn {

@@ -82,7 +82,7 @@ public final class VideoPlayerTest {
     protected ExoPlayerEventListener createExoPlayerEventListener(
         @NonNull ExoPlayer exoPlayer, @Nullable SurfaceProducer surfaceProducer) {
       // Use platform view implementation for testing.
-      return new PlatformViewExoPlayerEventListener(exoPlayer, mockEvents);
+      return new PlatformViewExoPlayerEventListener(exoPlayer, mockEvents, 3);
     }
   }
 

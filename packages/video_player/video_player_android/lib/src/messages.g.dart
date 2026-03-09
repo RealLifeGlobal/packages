@@ -266,6 +266,65 @@ class AudioTrackChangedEvent extends PlatformVideoEvent {
 ;
 }
 
+/// Sent when the video quality changes (ABR switch).
+///
+/// Corresponds to ExoPlayer's AnalyticsListener.onDownstreamFormatChanged.
+class VideoQualityChangedEvent extends PlatformVideoEvent {
+  VideoQualityChangedEvent({
+    required this.width,
+    required this.height,
+    required this.bitrate,
+    this.codec,
+  });
+
+  int width;
+
+  int height;
+
+  int bitrate;
+
+  String? codec;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      width,
+      height,
+      bitrate,
+      codec,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static VideoQualityChangedEvent decode(Object result) {
+    result as List<Object?>;
+    return VideoQualityChangedEvent(
+      width: result[0]! as int,
+      height: result[1]! as int,
+      bitrate: result[2]! as int,
+      codec: result[3] as String?,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! VideoQualityChangedEvent || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList())
+;
+}
+
 /// Sent when PiP state changes.
 class PipStateEvent extends PlatformVideoEvent {
   PipStateEvent({
@@ -375,6 +434,8 @@ class CreationOptions {
     this.formatHint,
     required this.httpHeaders,
     this.userAgent,
+    this.maxLoadRetries,
+    this.maxPlayerRecoveryAttempts,
   });
 
   String uri;
@@ -385,12 +446,22 @@ class CreationOptions {
 
   String? userAgent;
 
+  /// Max retries per segment/load error before escalating.
+  /// Null means use ExoPlayer's default (5).
+  int? maxLoadRetries;
+
+  /// Max player-level recovery attempts for fatal network errors.
+  /// Null means use the default (3).
+  int? maxPlayerRecoveryAttempts;
+
   List<Object?> _toList() {
     return <Object?>[
       uri,
       formatHint,
       httpHeaders,
       userAgent,
+      maxLoadRetries,
+      maxPlayerRecoveryAttempts,
     ];
   }
 
@@ -404,6 +475,8 @@ class CreationOptions {
       formatHint: result[1] as PlatformVideoFormat?,
       httpHeaders: (result[2] as Map<Object?, Object?>?)!.cast<String, String>(),
       userAgent: result[3] as String?,
+      maxLoadRetries: result[4] as int?,
+      maxPlayerRecoveryAttempts: result[5] as int?,
     );
   }
 
@@ -777,6 +850,68 @@ class PlatformMediaInfo {
 ;
 }
 
+/// Represents a video quality variant (resolution/bitrate combination).
+class PlatformVideoQuality {
+  PlatformVideoQuality({
+    required this.width,
+    required this.height,
+    required this.bitrate,
+    this.codec,
+    required this.isSelected,
+  });
+
+  int width;
+
+  int height;
+
+  int bitrate;
+
+  String? codec;
+
+  bool isSelected;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      width,
+      height,
+      bitrate,
+      codec,
+      isSelected,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static PlatformVideoQuality decode(Object result) {
+    result as List<Object?>;
+    return PlatformVideoQuality(
+      width: result[0]! as int,
+      height: result[1]! as int,
+      bitrate: result[2]! as int,
+      codec: result[3] as String?,
+      isSelected: result[4]! as bool,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PlatformVideoQuality || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList())
+;
+}
+
 
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
@@ -803,32 +938,38 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is AudioTrackChangedEvent) {
       buffer.putUint8(134);
       writeValue(buffer, value.encode());
-    }    else if (value is PipStateEvent) {
+    }    else if (value is VideoQualityChangedEvent) {
       buffer.putUint8(135);
       writeValue(buffer, value.encode());
-    }    else if (value is PlatformVideoViewCreationParams) {
+    }    else if (value is PipStateEvent) {
       buffer.putUint8(136);
       writeValue(buffer, value.encode());
-    }    else if (value is CreationOptions) {
+    }    else if (value is PlatformVideoViewCreationParams) {
       buffer.putUint8(137);
       writeValue(buffer, value.encode());
-    }    else if (value is TexturePlayerIds) {
+    }    else if (value is CreationOptions) {
       buffer.putUint8(138);
       writeValue(buffer, value.encode());
-    }    else if (value is PlaybackState) {
+    }    else if (value is TexturePlayerIds) {
       buffer.putUint8(139);
       writeValue(buffer, value.encode());
-    }    else if (value is AudioTrackMessage) {
+    }    else if (value is PlaybackState) {
       buffer.putUint8(140);
       writeValue(buffer, value.encode());
-    }    else if (value is ExoPlayerAudioTrackData) {
+    }    else if (value is AudioTrackMessage) {
       buffer.putUint8(141);
       writeValue(buffer, value.encode());
-    }    else if (value is NativeAudioTrackData) {
+    }    else if (value is ExoPlayerAudioTrackData) {
       buffer.putUint8(142);
       writeValue(buffer, value.encode());
-    }    else if (value is PlatformMediaInfo) {
+    }    else if (value is NativeAudioTrackData) {
       buffer.putUint8(143);
+      writeValue(buffer, value.encode());
+    }    else if (value is PlatformMediaInfo) {
+      buffer.putUint8(144);
+      writeValue(buffer, value.encode());
+    }    else if (value is PlatformVideoQuality) {
+      buffer.putUint8(145);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -853,23 +994,27 @@ class _PigeonCodec extends StandardMessageCodec {
       case 134:
         return AudioTrackChangedEvent.decode(readValue(buffer)!);
       case 135:
-        return PipStateEvent.decode(readValue(buffer)!);
+        return VideoQualityChangedEvent.decode(readValue(buffer)!);
       case 136:
-        return PlatformVideoViewCreationParams.decode(readValue(buffer)!);
+        return PipStateEvent.decode(readValue(buffer)!);
       case 137:
-        return CreationOptions.decode(readValue(buffer)!);
+        return PlatformVideoViewCreationParams.decode(readValue(buffer)!);
       case 138:
-        return TexturePlayerIds.decode(readValue(buffer)!);
+        return CreationOptions.decode(readValue(buffer)!);
       case 139:
-        return PlaybackState.decode(readValue(buffer)!);
+        return TexturePlayerIds.decode(readValue(buffer)!);
       case 140:
-        return AudioTrackMessage.decode(readValue(buffer)!);
+        return PlaybackState.decode(readValue(buffer)!);
       case 141:
-        return ExoPlayerAudioTrackData.decode(readValue(buffer)!);
+        return AudioTrackMessage.decode(readValue(buffer)!);
       case 142:
-        return NativeAudioTrackData.decode(readValue(buffer)!);
+        return ExoPlayerAudioTrackData.decode(readValue(buffer)!);
       case 143:
+        return NativeAudioTrackData.decode(readValue(buffer)!);
+      case 144:
         return PlatformMediaInfo.decode(readValue(buffer)!);
+      case 145:
+        return PlatformVideoQuality.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -1111,6 +1256,98 @@ class AndroidVideoPlayerApi {
     )
     ;
   }
+
+  Future<void> setCacheMaxSize(int maxSizeBytes) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setCacheMaxSize$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[maxSizeBytes]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
+
+  Future<void> clearCache() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.clearCache$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
+
+  Future<int> getCacheSize() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.getCacheSize$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: false,
+    )
+    !;
+    return pigeonVar_replyValue as int;
+  }
+
+  Future<bool> isCacheEnabled() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.isCacheEnabled$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: false,
+    )
+    !;
+    return pigeonVar_replyValue as bool;
+  }
+
+  Future<void> setCacheEnabled(bool enabled) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.AndroidVideoPlayerApi.setCacheEnabled$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[enabled]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
 }
 
 class VideoPlayerInstanceApi {
@@ -1309,6 +1546,84 @@ class VideoPlayerInstanceApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[groupIndex, trackIndex]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
+
+  /// Returns the available video quality variants.
+  Future<List<PlatformVideoQuality>> getAvailableQualities() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.VideoPlayerInstanceApi.getAvailableQualities$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: false,
+    )
+    !;
+    return (pigeonVar_replyValue as List<Object?>).cast<PlatformVideoQuality>();
+  }
+
+  /// Returns the currently playing video quality, or null if unknown.
+  Future<PlatformVideoQuality?> getCurrentQuality() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.VideoPlayerInstanceApi.getCurrentQuality$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+    return pigeonVar_replyValue as PlatformVideoQuality?;
+  }
+
+  /// Sets the maximum video bitrate in bits per second.
+  Future<void> setMaxBitrate(int maxBitrateBps) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.VideoPlayerInstanceApi.setMaxBitrate$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[maxBitrateBps]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
+
+  /// Sets the maximum video resolution.
+  Future<void> setMaxResolution(int width, int height) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.VideoPlayerInstanceApi.setMaxResolution$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[width, height]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(

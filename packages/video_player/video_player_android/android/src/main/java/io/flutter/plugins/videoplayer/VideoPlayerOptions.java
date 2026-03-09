@@ -6,4 +6,6 @@ package io.flutter.plugins.videoplayer;
 
 public class VideoPlayerOptions {
   public boolean mixWithOthers;
+  public int maxLoadRetries = 5;
+  public int maxPlayerRecoveryAttempts = 3;
 }

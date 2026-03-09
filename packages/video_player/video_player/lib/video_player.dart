@@ -16,6 +16,7 @@ import 'src/closed_caption_file.dart';
 
 export 'package:video_player_platform_interface/video_player_platform_interface.dart'
     show
+        AndroidVideoPlayerOptions,
         DataSourceType,
         DurationRange,
         MediaInfo,
@@ -23,6 +24,7 @@ export 'package:video_player_platform_interface/video_player_platform_interface.
         VideoPlayerOptions,
         VideoPlayerWebOptions,
         VideoPlayerWebOptionsControls,
+        VideoQuality,
         VideoViewType;
 
 export 'src/closed_caption_file.dart';
@@ -177,6 +179,7 @@ class VideoPlayerValue {
     this.isPlayingInBackground = false,
     this.isAutoEnterPipEnabled = false,
     this.pipSize,
+    this.currentQuality,
   });
 
   /// Returns an instance for a video that hasn't been loaded.
@@ -260,6 +263,12 @@ class VideoPlayerValue {
   /// metrics may not update in time (or at all) on some Android versions.
   final Size? pipSize;
 
+  /// The currently playing video quality (from the last ABR quality change event).
+  ///
+  /// This is null if the platform has not yet reported a quality, or for
+  /// non-adaptive streams.
+  final platform_interface.VideoQuality? currentQuality;
+
   /// The [size] of the currently loaded video.
   final Size size;
 
@@ -312,6 +321,7 @@ class VideoPlayerValue {
     bool? isPlayingInBackground,
     bool? isAutoEnterPipEnabled,
     Size? pipSize = _defaultPipSize,
+    platform_interface.VideoQuality? currentQuality,
   }) {
     return VideoPlayerValue(
       duration: duration ?? this.duration,
@@ -335,6 +345,7 @@ class VideoPlayerValue {
       isPlayingInBackground: isPlayingInBackground ?? this.isPlayingInBackground,
       isAutoEnterPipEnabled: isAutoEnterPipEnabled ?? this.isAutoEnterPipEnabled,
       pipSize: pipSize != _defaultPipSize ? pipSize : this.pipSize,
+      currentQuality: currentQuality ?? this.currentQuality,
     );
   }
 
@@ -358,7 +369,8 @@ class VideoPlayerValue {
         'isPipActive: $isPipActive, '
         'isPlayingInBackground: $isPlayingInBackground, '
         'isAutoEnterPipEnabled: $isAutoEnterPipEnabled, '
-        'pipSize: $pipSize)';
+        'pipSize: $pipSize, '
+        'currentQuality: $currentQuality)';
   }
 
   @override
@@ -384,7 +396,8 @@ class VideoPlayerValue {
           isPipActive == other.isPipActive &&
           isPlayingInBackground == other.isPlayingInBackground &&
           isAutoEnterPipEnabled == other.isAutoEnterPipEnabled &&
-          pipSize == other.pipSize;
+          pipSize == other.pipSize &&
+          currentQuality == other.currentQuality;
 
   @override
   int get hashCode => Object.hash(
@@ -401,7 +414,7 @@ class VideoPlayerValue {
     errorDescription,
     size,
     rotationCorrection,
-    Object.hash(isInitialized, isCompleted, isPipActive, isPlayingInBackground, isAutoEnterPipEnabled, pipSize),
+    Object.hash(isInitialized, isCompleted, isPipActive, isPlayingInBackground, isAutoEnterPipEnabled, pipSize, currentQuality),
   );
 }
 
@@ -615,6 +628,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     final creationOptions = platform_interface.VideoCreationOptions(
       dataSource: dataSourceDescription,
       viewType: viewType,
+      androidOptions: videoPlayerOptions?.androidOptions,
     );
 
     if (videoPlayerOptions?.mixWithOthers != null) {
@@ -707,6 +721,10 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
               _sawPipExit = false;
               _sawLifecyclePausedDuringPip = false;
             });
+          }
+        case platform_interface.VideoEventType.qualityChanged:
+          if (event.quality != null) {
+            value = value.copyWith(currentQuality: event.quality);
           }
         case platform_interface.VideoEventType.unknown:
           break;
@@ -1107,6 +1125,95 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
     }
     await _videoPlayerPlatform.disableBackgroundPlayback(_playerId);
     value = value.copyWith(isPlayingInBackground: false);
+  }
+
+  // Cache control — static methods since cache is shared across all players.
+
+  /// Sets the maximum cache size in bytes. Default is 500 MB.
+  ///
+  /// On Android, this controls the LRU eviction threshold for the
+  /// Media3 SimpleCache that stores HLS segments.
+  /// On iOS, this is currently a no-op (stored for future use).
+  static Future<void> setCacheMaxSize(int maxSizeBytes) {
+    return _videoPlayerPlatform.setCacheMaxSize(maxSizeBytes);
+  }
+
+  /// Clears all cached video data.
+  static Future<void> clearCache() {
+    return _videoPlayerPlatform.clearCache();
+  }
+
+  /// Returns the current cache size in bytes.
+  ///
+  /// Returns 0 on iOS (cache not yet implemented).
+  static Future<int> getCacheSize() {
+    return _videoPlayerPlatform.getCacheSize();
+  }
+
+  /// Returns whether caching is enabled.
+  ///
+  /// Returns false on iOS (cache not yet implemented).
+  static Future<bool> isCacheEnabled() {
+    return _videoPlayerPlatform.isCacheEnabled();
+  }
+
+  /// Enables or disables caching.
+  ///
+  /// No-op on iOS (cache not yet implemented).
+  static Future<void> setCacheEnabled(bool enabled) {
+    return _videoPlayerPlatform.setCacheEnabled(enabled);
+  }
+
+  // Adaptive Bitrate (ABR) control methods.
+
+  /// Returns the available video quality variants for this player.
+  ///
+  /// For HLS/DASH streams, this returns the list of renditions (resolution +
+  /// bitrate combinations) available in the manifest. For progressive MP4,
+  /// returns an empty list.
+  ///
+  /// On iOS < 15, returns an empty list (AVAssetVariant API not available).
+  Future<List<platform_interface.VideoQuality>> getAvailableQualities() async {
+    if (_isDisposedOrNotInitialized) {
+      return <platform_interface.VideoQuality>[];
+    }
+    return _videoPlayerPlatform.getAvailableQualities(_playerId);
+  }
+
+  /// Returns the currently playing video quality, or null if unknown.
+  Future<platform_interface.VideoQuality?> getCurrentQuality() async {
+    if (_isDisposedOrNotInitialized) {
+      return null;
+    }
+    return _videoPlayerPlatform.getCurrentQuality(_playerId);
+  }
+
+  /// Sets the maximum video bitrate in bits per second.
+  ///
+  /// The player will not select a quality variant with a bitrate higher
+  /// than this value. Set to 0 or a very large number to remove the limit.
+  ///
+  /// On Android, this sets ExoPlayer's DefaultTrackSelector maxVideoBitrate.
+  /// On iOS, this sets AVPlayerItem.preferredPeakBitRate.
+  Future<void> setMaxBitrate(int maxBitrateBps) async {
+    if (_isDisposedOrNotInitialized) {
+      return;
+    }
+    await _videoPlayerPlatform.setMaxBitrate(_playerId, maxBitrateBps);
+  }
+
+  /// Sets the maximum video resolution.
+  ///
+  /// The player will not select a quality variant with a resolution larger
+  /// than the given dimensions.
+  ///
+  /// On Android, this sets ExoPlayer's DefaultTrackSelector maxVideoSize.
+  /// On iOS, this sets AVPlayerItem.preferredMaximumResolution (iOS 11+).
+  Future<void> setMaxResolution(int width, int height) async {
+    if (_isDisposedOrNotInitialized) {
+      return;
+    }
+    await _videoPlayerPlatform.setMaxResolution(_playerId, width, height);
   }
 
   bool get _isDisposedOrNotInitialized => _isDisposed || !value.isInitialized;

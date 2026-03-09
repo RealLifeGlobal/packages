@@ -11,6 +11,7 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import io.flutter.plugins.videoplayer.ExoPlayerEventListener;
 import io.flutter.plugins.videoplayer.VideoAsset;
 import io.flutter.plugins.videoplayer.VideoPlayer;
@@ -58,10 +59,18 @@ public class PlatformViewVideoPlayer extends VideoPlayer {
         () -> {
           androidx.media3.exoplayer.trackselection.DefaultTrackSelector trackSelector =
               new androidx.media3.exoplayer.trackselection.DefaultTrackSelector(context);
+          androidx.media3.exoplayer.source.MediaSource.Factory mediaSourceFactory =
+              asset.getMediaSourceFactory(context);
+          if (mediaSourceFactory
+              instanceof androidx.media3.exoplayer.source.DefaultMediaSourceFactory) {
+            ((androidx.media3.exoplayer.source.DefaultMediaSourceFactory) mediaSourceFactory)
+                .setLoadErrorHandlingPolicy(
+                    new DefaultLoadErrorHandlingPolicy(options.maxLoadRetries));
+          }
           ExoPlayer.Builder builder =
               new ExoPlayer.Builder(context)
                   .setTrackSelector(trackSelector)
-                  .setMediaSourceFactory(asset.getMediaSourceFactory(context));
+                  .setMediaSourceFactory(mediaSourceFactory);
           return builder.build();
         });
   }
@@ -70,6 +79,7 @@ public class PlatformViewVideoPlayer extends VideoPlayer {
   @Override
   protected ExoPlayerEventListener createExoPlayerEventListener(
       @NonNull ExoPlayer exoPlayer, @Nullable SurfaceProducer surfaceProducer) {
-    return new PlatformViewExoPlayerEventListener(exoPlayer, videoPlayerEvents);
+    return new PlatformViewExoPlayerEventListener(exoPlayer, videoPlayerEvents,
+        maxPlayerRecoveryAttempts);
   }
 }

@@ -197,6 +197,61 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
       'disableBackgroundPlayback() has not been implemented.',
     );
   }
+
+  // Cache control methods
+
+  /// Sets the maximum cache size in bytes.
+  Future<void> setCacheMaxSize(int maxSizeBytes) {
+    throw UnimplementedError(
+      'setCacheMaxSize() has not been implemented.',
+    );
+  }
+
+  /// Clears all cached video data.
+  Future<void> clearCache() {
+    throw UnimplementedError('clearCache() has not been implemented.');
+  }
+
+  /// Returns the current cache size in bytes.
+  Future<int> getCacheSize() {
+    throw UnimplementedError('getCacheSize() has not been implemented.');
+  }
+
+  /// Returns whether caching is enabled.
+  Future<bool> isCacheEnabled() {
+    throw UnimplementedError('isCacheEnabled() has not been implemented.');
+  }
+
+  /// Enables or disables caching.
+  Future<void> setCacheEnabled(bool enabled) {
+    throw UnimplementedError('setCacheEnabled() has not been implemented.');
+  }
+
+  // Adaptive Bitrate control methods
+
+  /// Returns the available video quality variants for the given player.
+  Future<List<VideoQuality>> getAvailableQualities(int playerId) {
+    throw UnimplementedError(
+      'getAvailableQualities() has not been implemented.',
+    );
+  }
+
+  /// Returns the current video quality for the given player.
+  Future<VideoQuality?> getCurrentQuality(int playerId) {
+    throw UnimplementedError(
+      'getCurrentQuality() has not been implemented.',
+    );
+  }
+
+  /// Sets the maximum video bitrate in bits per second.
+  Future<void> setMaxBitrate(int playerId, int maxBitrateBps) {
+    throw UnimplementedError('setMaxBitrate() has not been implemented.');
+  }
+
+  /// Sets the maximum video resolution.
+  Future<void> setMaxResolution(int playerId, int width, int height) {
+    throw UnimplementedError('setMaxResolution() has not been implemented.');
+  }
 }
 
 class _PlaceholderImplementation extends VideoPlayerPlatform {}
@@ -320,6 +375,7 @@ class VideoEvent {
     this.isPipActive,
     this.wasDismissed,
     this.pipWindowSize,
+    this.quality,
   });
 
   /// The type of the event.
@@ -369,6 +425,11 @@ class VideoEvent {
   /// When [isPipActive] is false, this is the restored window size.
   final Size? pipWindowSize;
 
+  /// The current video quality after an ABR switch.
+  ///
+  /// Only used if [eventType] is [VideoEventType.qualityChanged].
+  final VideoQuality? quality;
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
@@ -382,7 +443,8 @@ class VideoEvent {
             isPlaying == other.isPlaying &&
             isPipActive == other.isPipActive &&
             wasDismissed == other.wasDismissed &&
-            pipWindowSize == other.pipWindowSize;
+            pipWindowSize == other.pipWindowSize &&
+            quality == other.quality;
   }
 
   @override
@@ -396,6 +458,7 @@ class VideoEvent {
     isPipActive,
     wasDismissed,
     pipWindowSize,
+    quality,
   );
 }
 
@@ -429,6 +492,9 @@ enum VideoEventType {
 
   /// The PiP state has changed.
   pipStateChanged,
+
+  /// The video quality has changed (ABR switch).
+  qualityChanged,
 
   /// An unknown event has been received.
   unknown,
@@ -511,6 +577,7 @@ class VideoPlayerOptions {
     this.mixWithOthers = false,
     this.allowBackgroundPlayback = false,
     this.webOptions,
+    this.androidOptions,
   });
 
   /// Set this to true to keep playing video in background, when app goes in background.
@@ -526,6 +593,31 @@ class VideoPlayerOptions {
 
   /// Additional web controls
   final VideoPlayerWebOptions? webOptions;
+
+  /// Additional Android controls
+  final AndroidVideoPlayerOptions? androidOptions;
+}
+
+/// Android-specific video player options for configuring ExoPlayer behavior.
+@immutable
+class AndroidVideoPlayerOptions {
+  /// Creates Android-specific video player options.
+  const AndroidVideoPlayerOptions({
+    this.maxLoadRetries = 5,
+    this.maxPlayerRecoveryAttempts = 3,
+  });
+
+  /// Max retries per segment/load error before escalating
+  /// (ExoPlayer LoadErrorHandlingPolicy).
+  ///
+  /// Default 5 matches ExoPlayer's DefaultLoadErrorHandlingPolicy default.
+  final int maxLoadRetries;
+
+  /// Max player-level recovery attempts for fatal network errors
+  /// (e.g. connection lost).
+  ///
+  /// After exhausting these, the error is surfaced to the app.
+  final int maxPlayerRecoveryAttempts;
 }
 
 /// [VideoPlayerWebOptions] can be optionally used to set additional web settings
@@ -628,6 +720,7 @@ class VideoCreationOptions {
   const VideoCreationOptions({
     required this.dataSource,
     required this.viewType,
+    this.androidOptions,
   });
 
   /// The data source used to create the player.
@@ -635,6 +728,9 @@ class VideoCreationOptions {
 
   /// The type of view to be used for displaying the video player
   final VideoViewType viewType;
+
+  /// Android-specific options for configuring ExoPlayer behavior.
+  final AndroidVideoPlayerOptions? androidOptions;
 }
 
 /// Represents an audio track in a video with its metadata.
@@ -726,6 +822,53 @@ class VideoAudioTrack {
       'sampleRate: $sampleRate, '
       'channelCount: $channelCount, '
       'codec: $codec)';
+}
+
+/// Represents a video quality variant (resolution/bitrate combination)
+/// from an adaptive bitrate stream.
+@immutable
+class VideoQuality {
+  /// Constructs a [VideoQuality].
+  const VideoQuality({
+    required this.width,
+    required this.height,
+    required this.bitrate,
+    required this.isSelected,
+    this.codec,
+  });
+
+  /// Width in pixels.
+  final int width;
+
+  /// Height in pixels.
+  final int height;
+
+  /// Bitrate in bits per second.
+  final int bitrate;
+
+  /// Video codec (e.g., 'avc1.64001f', 'hev1.1.6.L93.B0').
+  final String? codec;
+
+  /// Whether this quality variant is currently selected.
+  final bool isSelected;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VideoQuality &&
+          runtimeType == other.runtimeType &&
+          width == other.width &&
+          height == other.height &&
+          bitrate == other.bitrate &&
+          codec == other.codec &&
+          isSelected == other.isSelected;
+
+  @override
+  int get hashCode => Object.hash(width, height, bitrate, codec, isSelected);
+
+  @override
+  String toString() =>
+      'VideoQuality(${width}x$height @ ${bitrate}bps, codec: $codec, selected: $isSelected)';
 }
 
 /// Media information for lock screen / notification display during

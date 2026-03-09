@@ -114,6 +114,9 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
       httpHeaders: httpHeaders,
       userAgent: userAgent,
       formatHint: formatHint,
+      maxLoadRetries: options.androidOptions?.maxLoadRetries,
+      maxPlayerRecoveryAttempts:
+          options.androidOptions?.maxPlayerRecoveryAttempts,
     );
 
     final int playerId;
@@ -310,6 +313,78 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
     return _api.disableBackgroundPlayback(playerId);
   }
 
+  // Cache control methods
+
+  @override
+  Future<void> setCacheMaxSize(int maxSizeBytes) {
+    return _api.setCacheMaxSize(maxSizeBytes);
+  }
+
+  @override
+  Future<void> clearCache() {
+    return _api.clearCache();
+  }
+
+  @override
+  Future<int> getCacheSize() async {
+    return _api.getCacheSize();
+  }
+
+  @override
+  Future<bool> isCacheEnabled() async {
+    return _api.isCacheEnabled();
+  }
+
+  @override
+  Future<void> setCacheEnabled(bool enabled) {
+    return _api.setCacheEnabled(enabled);
+  }
+
+  // ABR control methods
+
+  @override
+  Future<List<VideoQuality>> getAvailableQualities(int playerId) async {
+    final List<PlatformVideoQuality> qualities =
+        await _playerWith(id: playerId).getAvailableQualities();
+    return qualities
+        .map(
+          (PlatformVideoQuality q) => VideoQuality(
+            width: q.width,
+            height: q.height,
+            bitrate: q.bitrate,
+            codec: q.codec,
+            isSelected: q.isSelected,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<VideoQuality?> getCurrentQuality(int playerId) async {
+    final PlatformVideoQuality? q =
+        await _playerWith(id: playerId).getCurrentQuality();
+    if (q == null) {
+      return null;
+    }
+    return VideoQuality(
+      width: q.width,
+      height: q.height,
+      bitrate: q.bitrate,
+      codec: q.codec,
+      isSelected: q.isSelected,
+    );
+  }
+
+  @override
+  Future<void> setMaxBitrate(int playerId, int maxBitrateBps) {
+    return _playerWith(id: playerId).setMaxBitrate(maxBitrateBps);
+  }
+
+  @override
+  Future<void> setMaxResolution(int playerId, int width, int height) {
+    return _playerWith(id: playerId).setMaxResolution(width, height);
+  }
+
   _PlayerInstance _playerWith({required int id}) {
     final _PlayerInstance? player = _players[id];
     return player ?? (throw StateError('No active player with ID $id.'));
@@ -395,6 +470,22 @@ class _PlayerInstance {
 
   Future<NativeAudioTrackData> getAudioTracks() {
     return _api.getAudioTracks();
+  }
+
+  Future<List<PlatformVideoQuality>> getAvailableQualities() {
+    return _api.getAvailableQualities();
+  }
+
+  Future<PlatformVideoQuality?> getCurrentQuality() {
+    return _api.getCurrentQuality();
+  }
+
+  Future<void> setMaxBitrate(int maxBitrateBps) {
+    return _api.setMaxBitrate(maxBitrateBps);
+  }
+
+  Future<void> setMaxResolution(int width, int height) {
+    return _api.setMaxResolution(width, height);
   }
 
   Future<void> selectAudioTrack(String trackId) async {
@@ -538,6 +629,19 @@ class _PlayerInstance {
             isPipActive: event.isInPipMode,
             wasDismissed: event.wasDismissed,
             pipWindowSize: Size(event.windowWidth.toDouble(), event.windowHeight.toDouble()),
+          ),
+        );
+      case VideoQualityChangedEvent _:
+        _eventStreamController.add(
+          VideoEvent(
+            eventType: VideoEventType.qualityChanged,
+            quality: VideoQuality(
+              width: event.width,
+              height: event.height,
+              bitrate: event.bitrate,
+              codec: event.codec,
+              isSelected: true,
+            ),
           ),
         );
     }
