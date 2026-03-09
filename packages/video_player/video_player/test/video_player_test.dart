@@ -148,6 +148,19 @@ class FakeController extends ValueNotifier<VideoPlayerValue>
   @override
   Future<void> disableBackgroundPlayback() async {}
 
+  @override
+  Future<List<VideoQuality>> getAvailableQualities() async =>
+      <VideoQuality>[];
+
+  @override
+  Future<VideoQuality?> getCurrentQuality() async => null;
+
+  @override
+  Future<void> setMaxBitrate(int maxBitrateBps) async {}
+
+  @override
+  Future<void> setMaxResolution(int width, int height) async {}
+
   String? selectedAudioTrackId;
 }
 

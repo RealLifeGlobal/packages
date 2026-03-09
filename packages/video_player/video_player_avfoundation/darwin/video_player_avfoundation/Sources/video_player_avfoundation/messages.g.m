@@ -56,6 +56,12 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
 - (NSArray<id> *)toList;
 @end
 
+@interface FVPPlatformVideoQuality ()
++ (FVPPlatformVideoQuality *)fromList:(NSArray<id> *)list;
++ (nullable FVPPlatformVideoQuality *)nullableFromList:(NSArray<id> *)list;
+- (NSArray<id> *)toList;
+@end
+
 @implementation FVPPlatformVideoViewCreationParams
 + (instancetype)makeWithPlayerId:(NSInteger )playerId {
   FVPPlatformVideoViewCreationParams* pigeonResult = [[FVPPlatformVideoViewCreationParams alloc] init];
@@ -197,6 +203,43 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
 }
 @end
 
+@implementation FVPPlatformVideoQuality
++ (instancetype)makeWithWidth:(NSInteger )width
+    height:(NSInteger )height
+    bitrate:(NSInteger )bitrate
+    codec:(nullable NSString *)codec
+    isSelected:(BOOL )isSelected {
+  FVPPlatformVideoQuality* pigeonResult = [[FVPPlatformVideoQuality alloc] init];
+  pigeonResult.width = width;
+  pigeonResult.height = height;
+  pigeonResult.bitrate = bitrate;
+  pigeonResult.codec = codec;
+  pigeonResult.isSelected = isSelected;
+  return pigeonResult;
+}
++ (FVPPlatformVideoQuality *)fromList:(NSArray<id> *)list {
+  FVPPlatformVideoQuality *pigeonResult = [[FVPPlatformVideoQuality alloc] init];
+  pigeonResult.width = [GetNullableObjectAtIndex(list, 0) integerValue];
+  pigeonResult.height = [GetNullableObjectAtIndex(list, 1) integerValue];
+  pigeonResult.bitrate = [GetNullableObjectAtIndex(list, 2) integerValue];
+  pigeonResult.codec = GetNullableObjectAtIndex(list, 3);
+  pigeonResult.isSelected = [GetNullableObjectAtIndex(list, 4) boolValue];
+  return pigeonResult;
+}
++ (nullable FVPPlatformVideoQuality *)nullableFromList:(NSArray<id> *)list {
+  return (list) ? [FVPPlatformVideoQuality fromList:list] : nil;
+}
+- (NSArray<id> *)toList {
+  return @[
+    @(self.width),
+    @(self.height),
+    @(self.bitrate),
+    self.codec ?: [NSNull null],
+    @(self.isSelected),
+  ];
+}
+@end
+
 @interface FVPMessagesPigeonCodecReader : FlutterStandardReader
 @end
 @implementation FVPMessagesPigeonCodecReader
@@ -212,6 +255,8 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
       return [FVPMediaSelectionAudioTrackData fromList:[self readValue]];
     case 133: 
       return [FVPPlatformMediaInfo fromList:[self readValue]];
+    case 134: 
+      return [FVPPlatformVideoQuality fromList:[self readValue]];
     default:
       return [super readValueOfType:type];
   }
@@ -236,6 +281,9 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
     [self writeValue:[value toList]];
   } else if ([value isKindOfClass:[FVPPlatformMediaInfo class]]) {
     [self writeByte:133];
+    [self writeValue:[value toList]];
+  } else if ([value isKindOfClass:[FVPPlatformVideoQuality class]]) {
+    [self writeByte:134];
     [self writeValue:[value toList]];
   } else {
     [super writeValue:value];
@@ -496,6 +544,95 @@ void SetUpFVPAVFoundationVideoPlayerApiWithSuffix(id<FlutterBinaryMessenger> bin
       [channel setMessageHandler:nil];
     }
   }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.setCacheMaxSize", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(setCacheMaxSize:error:)], @"FVPAVFoundationVideoPlayerApi api (%@) doesn't respond to @selector(setCacheMaxSize:error:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        NSArray<id> *args = message;
+        NSInteger arg_maxSizeBytes = [GetNullableObjectAtIndex(args, 0) integerValue];
+        FlutterError *error;
+        [api setCacheMaxSize:arg_maxSizeBytes error:&error];
+        callback(wrapResult(nil, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.clearCache", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(clearCache:)], @"FVPAVFoundationVideoPlayerApi api (%@) doesn't respond to @selector(clearCache:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        FlutterError *error;
+        [api clearCache:&error];
+        callback(wrapResult(nil, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.getCacheSize", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(getCacheSize:)], @"FVPAVFoundationVideoPlayerApi api (%@) doesn't respond to @selector(getCacheSize:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        FlutterError *error;
+        NSNumber *output = [api getCacheSize:&error];
+        callback(wrapResult(output, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.isCacheEnabled", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(isCacheEnabled:)], @"FVPAVFoundationVideoPlayerApi api (%@) doesn't respond to @selector(isCacheEnabled:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        FlutterError *error;
+        NSNumber *output = [api isCacheEnabled:&error];
+        callback(wrapResult(output, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.setCacheEnabled", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(setCacheEnabled:error:)], @"FVPAVFoundationVideoPlayerApi api (%@) doesn't respond to @selector(setCacheEnabled:error:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        NSArray<id> *args = message;
+        BOOL arg_enabled = [GetNullableObjectAtIndex(args, 0) boolValue];
+        FlutterError *error;
+        [api setCacheEnabled:arg_enabled error:&error];
+        callback(wrapResult(nil, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
 }
 void SetUpFVPVideoPlayerInstanceApi(id<FlutterBinaryMessenger> binaryMessenger, NSObject<FVPVideoPlayerInstanceApi> *api) {
   SetUpFVPVideoPlayerInstanceApiWithSuffix(binaryMessenger, api, @"");
@@ -677,6 +814,79 @@ void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryM
         NSInteger arg_trackIndex = [GetNullableObjectAtIndex(args, 0) integerValue];
         FlutterError *error;
         [api selectAudioTrackAtIndex:arg_trackIndex error:&error];
+        callback(wrapResult(nil, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getAvailableQualities", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(getAvailableQualities:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(getAvailableQualities:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        FlutterError *error;
+        NSArray<FVPPlatformVideoQuality *> *output = [api getAvailableQualities:&error];
+        callback(wrapResult(output, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getCurrentQuality", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(getCurrentQuality:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(getCurrentQuality:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        FlutterError *error;
+        FVPPlatformVideoQuality *output = [api getCurrentQuality:&error];
+        callback(wrapResult(output, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setMaxBitrate", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(setMaxBitrate:error:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(setMaxBitrate:error:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        NSArray<id> *args = message;
+        NSInteger arg_maxBitrateBps = [GetNullableObjectAtIndex(args, 0) integerValue];
+        FlutterError *error;
+        [api setMaxBitrate:arg_maxBitrateBps error:&error];
+        callback(wrapResult(nil, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setMaxResolution", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(setMaxResolutionWidth:height:error:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(setMaxResolutionWidth:height:error:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        NSArray<id> *args = message;
+        NSInteger arg_width = [GetNullableObjectAtIndex(args, 0) integerValue];
+        NSInteger arg_height = [GetNullableObjectAtIndex(args, 1) integerValue];
+        FlutterError *error;
+        [api setMaxResolutionWidth:arg_width height:arg_height error:&error];
         callback(wrapResult(nil, error));
       }];
     } else {

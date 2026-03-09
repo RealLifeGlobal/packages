@@ -107,6 +107,17 @@
   [self sendOrQueue:@{@"event" : @"pipStateChanged", @"isPipActive" : @(isPipActive)}];
 }
 
+- (void)videoPlayerDidChangeQualityWithWidth:(NSInteger)width
+                                      height:(NSInteger)height
+                                     bitrate:(NSInteger)bitrate {
+  [self sendOrQueue:@{
+    @"event" : @"qualityChanged",
+    @"width" : @(width),
+    @"height" : @(height),
+    @"bitrate" : @(bitrate),
+  }];
+}
+
 - (void)videoPlayerWasDisposed {
   [self.eventChannel setStreamHandler:nil];
 }

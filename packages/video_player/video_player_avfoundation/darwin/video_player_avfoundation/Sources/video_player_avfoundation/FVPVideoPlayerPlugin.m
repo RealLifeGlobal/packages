@@ -395,6 +395,30 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
   [player.pipController setCanStartAutomatically:enabled];
 }
 
+// Cache control methods — no-ops on iOS until the HLS reverse-proxy cache phase.
+
+- (void)setCacheMaxSize:(NSInteger)maxSizeBytes
+                  error:(FlutterError *_Nullable *_Nonnull)error {
+  // No-op on iOS. Store value for future use.
+}
+
+- (void)clearCache:(FlutterError *_Nullable *_Nonnull)error {
+  // No-op on iOS.
+}
+
+- (nullable NSNumber *)getCacheSize:(FlutterError *_Nullable *_Nonnull)error {
+  return @(0);
+}
+
+- (nullable NSNumber *)isCacheEnabled:(FlutterError *_Nullable *_Nonnull)error {
+  return @(NO);
+}
+
+- (void)setCacheEnabled:(BOOL)enabled
+                  error:(FlutterError *_Nullable *_Nonnull)error {
+  // No-op on iOS.
+}
+
 /// Returns the AVPlayerItem corresponding to the given player creation options.
 - (nonnull NSObject<FVPAVPlayerItem> *)playerItemWithCreationOptions:
     (nonnull FVPCreationOptions *)options {

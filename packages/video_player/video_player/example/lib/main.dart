@@ -21,7 +21,7 @@ class _App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 3,
+      length: 4,
       child: Scaffold(
         key: const ValueKey<String>('home_page'),
         appBar: AppBar(
@@ -73,6 +73,7 @@ class _App extends StatelessWidget {
               Tab(icon: Icon(Icons.cloud), text: 'Remote'),
               Tab(icon: Icon(Icons.insert_drive_file), text: 'Asset'),
               Tab(icon: Icon(Icons.list), text: 'List example'),
+              Tab(icon: Icon(Icons.hd), text: 'HLS / ABR'),
             ],
           ),
         ),
@@ -89,6 +90,10 @@ class _App extends StatelessWidget {
             _ViewTypeTabBar(
               builder: (VideoViewType viewType) =>
                   _ButterFlyAssetVideoInList(viewType),
+            ),
+            _ViewTypeTabBar(
+              builder: (VideoViewType viewType) =>
+                  _HlsAbrDemo(viewType),
             ),
           ],
         ),
@@ -720,6 +725,426 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HlsAbrDemo extends StatefulWidget {
+  const _HlsAbrDemo(this.viewType);
+
+  final VideoViewType viewType;
+
+  @override
+  State<_HlsAbrDemo> createState() => _HlsAbrDemoState();
+}
+
+class _HlsAbrDemoState extends State<_HlsAbrDemo> {
+  late VideoPlayerController _controller;
+  List<VideoQuality> _qualities = <VideoQuality>[];
+  VideoQuality? _currentQuality;
+  int _cacheSizeBytes = 0;
+  bool _cacheEnabled = true;
+  String? _activeConstraint;
+  final List<String> _log = <String>[];
+
+  // Quality buttons are built dynamically from getAvailableQualities().
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(
+      Uri.parse(
+        'https://test-storage.reallifeglobal.com/demo_hls_1080/master.m3u8',
+      ),
+      formatHint: VideoFormat.hls,
+      viewType: widget.viewType,
+    );
+    _controller.addListener(_onControllerUpdate);
+    _controller.setLooping(true);
+    _controller.initialize().then((_) {
+      setState(() {});
+      _refreshAll();
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onControllerUpdate);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _onControllerUpdate() {
+    final VideoQuality? q = _controller.value.currentQuality;
+    if (q != null && q != _currentQuality) {
+      _addLog(
+        'Quality changed -> ${q.width}x${q.height} '
+        '@ ${_formatBitrate(q.bitrate)}',
+      );
+      _currentQuality = q;
+    }
+    setState(() {});
+  }
+
+  Future<void> _refreshAll() async {
+    await Future.wait(<Future<void>>[
+      _refreshQualities(),
+      _refreshCacheInfo(),
+    ]);
+  }
+
+  Future<void> _refreshQualities() async {
+    final List<VideoQuality> qualities =
+        await _controller.getAvailableQualities();
+    // Sort by height ascending so buttons show low-to-high.
+    qualities.sort(
+      (VideoQuality a, VideoQuality b) => a.height.compareTo(b.height),
+    );
+    setState(() {
+      _qualities = qualities;
+    });
+  }
+
+  Future<void> _refreshCacheInfo() async {
+    final int size = await VideoPlayerController.getCacheSize();
+    final bool enabled = await VideoPlayerController.isCacheEnabled();
+    setState(() {
+      _cacheSizeBytes = size;
+      _cacheEnabled = enabled;
+    });
+  }
+
+  Future<void> _forceQuality(int width, int height, String label) async {
+    // To force a specific quality, set BOTH max resolution AND max bitrate.
+    // This tells the track selector to pick the variant that fits both
+    // constraints.
+    await _controller.setMaxResolution(width, height);
+    _addLog('Set max resolution: ${width}x$height ($label)');
+    setState(() {
+      _activeConstraint = label;
+    });
+  }
+
+  Future<void> _removeConstraints() async {
+    await _controller.setMaxBitrate(999999999);
+    await _controller.setMaxResolution(9999, 9999);
+    _addLog('Removed all quality constraints (auto ABR)');
+    setState(() {
+      _activeConstraint = 'Auto';
+    });
+  }
+
+  void _addLog(String message) {
+    final String timestamp = DateTime.now().toIso8601String().substring(11, 19);
+    setState(() {
+      _log.insert(0, '[$timestamp] $message');
+      if (_log.length > 30) {
+        _log.removeLast();
+      }
+    });
+  }
+
+  String _formatBitrate(int bps) {
+    if (bps <= 0) {
+      return 'unknown';
+    }
+    if (bps < 1000) {
+      return '$bps bps';
+    }
+    if (bps < 1000000) {
+      return '${(bps / 1000).toStringAsFixed(0)} kbps';
+    }
+    return '${(bps / 1000000).toStringAsFixed(1)} Mbps';
+  }
+
+  String _formatBytes(int bytes) {
+    if (bytes < 1024) {
+      return '$bytes B';
+    }
+    if (bytes < 1024 * 1024) {
+      return '${(bytes / 1024).toStringAsFixed(1)} KB';
+    }
+    return '${(bytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  }
+
+  String _qualityLabel(VideoQuality q) {
+    return '${q.width}x${q.height} @ ${_formatBitrate(q.bitrate)}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final TextStyle? titleStyle = Theme.of(context).textTheme.titleMedium;
+    const monoStyle = TextStyle(
+      fontFamily: 'monospace',
+      fontSize: 12,
+    );
+
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          // Video player
+          Container(
+            padding: const EdgeInsets.all(12),
+            child: AspectRatio(
+              aspectRatio: _controller.value.isInitialized
+                  ? _controller.value.aspectRatio
+                  : 16 / 9,
+              child: Stack(
+                alignment: Alignment.bottomCenter,
+                children: <Widget>[
+                  VideoPlayer(_controller),
+                  // Current quality badge overlay
+                  if (_currentQuality != null)
+                    Positioned(
+                      top: 8,
+                      right: 8,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: Colors.black87,
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Text(
+                          '${_currentQuality!.height}p  '
+                          '${_formatBitrate(_currentQuality!.bitrate)}',
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                    ),
+                  _ControlsOverlay(controller: _controller),
+                  VideoProgressIndicator(_controller, allowScrubbing: true),
+                ],
+              ),
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: <Widget>[
+                // Force Quality section
+                Text('Force Quality', style: titleStyle),
+                const SizedBox(height: 4),
+                Text(
+                  'Active: ${_activeConstraint ?? "Auto (no constraint)"}',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 6,
+                  children: <Widget>[
+                    for (final VideoQuality q in _qualities)
+                      _QualityButton(
+                        label: '${q.height}p',
+                        detail: _formatBitrate(q.bitrate),
+                        isActive: _activeConstraint == '${q.height}p',
+                        onPressed: () =>
+                            _forceQuality(q.width, q.height, '${q.height}p'),
+                      ),
+                    _QualityButton(
+                      label: 'Auto',
+                      detail: 'ABR decides',
+                      isActive: _activeConstraint == 'Auto',
+                      onPressed: _removeConstraints,
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.amber.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.amber.shade200),
+                  ),
+                  child: const Text(
+                    'Note: Already-buffered segments play at their original '
+                    'quality. After changing quality, seek forward past the '
+                    'buffer to see the new quality immediately, or wait for '
+                    'the buffer to drain during normal playback.',
+                    style: TextStyle(fontSize: 11),
+                  ),
+                ),
+
+                // Available qualities
+                if (_qualities.isNotEmpty) ...<Widget>[
+                  const SizedBox(height: 12),
+                  Text('Available Variants', style: titleStyle),
+                  const SizedBox(height: 4),
+                  for (final VideoQuality q in _qualities)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 2),
+                      child: Text(
+                        '${q.isSelected ? "-> " : "   "}'
+                        '${_qualityLabel(q)}'
+                        '${q.codec != null ? "  [${q.codec}]" : ""}',
+                        style: monoStyle.copyWith(
+                          fontWeight: q.isSelected
+                              ? FontWeight.bold
+                              : FontWeight.normal,
+                          color: q.isSelected ? Colors.green.shade700 : null,
+                        ),
+                      ),
+                    ),
+                ] else ...<Widget>[
+                  const SizedBox(height: 8),
+                  TextButton.icon(
+                    icon: const Icon(Icons.refresh, size: 16),
+                    label: const Text('Load available qualities'),
+                    onPressed: _refreshQualities,
+                  ),
+                ],
+                const Divider(),
+
+                // Cache section
+                Row(
+                  children: <Widget>[
+                    Text('Cache', style: titleStyle),
+                    const Spacer(),
+                    Text(
+                      '${_formatBytes(_cacheSizeBytes)}'
+                      '  ${_cacheEnabled ? "(ON)" : "(OFF)"}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton(
+                      icon: const Icon(Icons.refresh, size: 18),
+                      onPressed: _refreshCacheInfo,
+                      visualDensity: VisualDensity.compact,
+                      tooltip: 'Refresh cache info',
+                    ),
+                  ],
+                ),
+                Wrap(
+                  spacing: 6,
+                  runSpacing: 4,
+                  children: <Widget>[
+                    OutlinedButton(
+                      onPressed: () async {
+                        await VideoPlayerController.clearCache();
+                        _addLog('Cache cleared');
+                        await _refreshCacheInfo();
+                      },
+                      child: const Text('Clear'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () async {
+                        await VideoPlayerController.setCacheEnabled(
+                            !_cacheEnabled);
+                        _addLog(
+                          'Cache ${!_cacheEnabled ? "enabled" : "disabled"}',
+                        );
+                        await _refreshCacheInfo();
+                      },
+                      child: Text(_cacheEnabled ? 'Disable' : 'Enable'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () async {
+                        await VideoPlayerController.setCacheMaxSize(
+                          100 * 1024 * 1024,
+                        );
+                        _addLog('Cache max set to 100 MB');
+                      },
+                      child: const Text('100 MB'),
+                    ),
+                    OutlinedButton(
+                      onPressed: () async {
+                        await VideoPlayerController.setCacheMaxSize(
+                          500 * 1024 * 1024,
+                        );
+                        _addLog('Cache max set to 500 MB');
+                      },
+                      child: const Text('500 MB'),
+                    ),
+                  ],
+                ),
+                const Divider(),
+
+                // Log section
+                Row(
+                  children: <Widget>[
+                    Text('Event Log', style: titleStyle),
+                    const Spacer(),
+                    TextButton(
+                      onPressed: () => setState(() => _log.clear()),
+                      child: const Text('Clear'),
+                    ),
+                  ],
+                ),
+                Container(
+                  width: double.infinity,
+                  height: 140,
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade900,
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  child: _log.isEmpty
+                      ? Text(
+                          'No events yet...',
+                          style: monoStyle.copyWith(color: Colors.grey),
+                        )
+                      : ListView.builder(
+                          itemCount: _log.length,
+                          itemBuilder: (BuildContext context, int index) {
+                            return Text(
+                              _log[index],
+                              style: monoStyle.copyWith(
+                                color: Colors.green.shade300,
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                const SizedBox(height: 24),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QualityButton extends StatelessWidget {
+  const _QualityButton({
+    required this.label,
+    required this.detail,
+    required this.isActive,
+    required this.onPressed,
+  });
+
+  final String label;
+  final String detail;
+  final bool isActive;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: isActive ? Colors.blue : null,
+        foregroundColor: isActive ? Colors.white : null,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      ),
+      onPressed: onPressed,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+          Text(detail, style: const TextStyle(fontSize: 10)),
         ],
       ),
     );

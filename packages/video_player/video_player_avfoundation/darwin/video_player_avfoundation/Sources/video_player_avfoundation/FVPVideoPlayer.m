@@ -71,6 +71,8 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
 @implementation FVPVideoPlayer {
   // Whether or not player and player item listeners have ever been registered.
   BOOL _listenersRegistered;
+  // The last known indicated bitrate from the access log, used to detect ABR quality changes.
+  double _lastIndicatedBitrate;
 }
 
 @synthesize playerLayer = _playerLayer;
@@ -218,6 +220,10 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
                                              selector:@selector(itemDidPlayToEndTime:)
                                                  name:AVPlayerItemDidPlayToEndTimeNotification
                                                object:item];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(accessLogEntryAdded:)
+                                                 name:AVPlayerItemNewAccessLogEntryNotification
+                                               object:item];
     _listenersRegistered = YES;
   }
 }
@@ -228,6 +234,67 @@ static NSDictionary<NSString *, NSValue *> *FVPGetPlayerItemObservations(void) {
     [p seekToTime:kCMTimeZero completionHandler:nil];
   } else {
     [self.eventListener videoPlayerDidComplete];
+  }
+}
+
+- (void)accessLogEntryAdded:(NSNotification *)notification {
+  AVPlayerItem *item = (AVPlayerItem *)notification.object;
+  AVPlayerItemAccessLog *accessLog = item.accessLog;
+  NSArray<AVPlayerItemAccessLogEvent *> *events = accessLog.events;
+  AVPlayerItemAccessLogEvent *lastEvent = events.lastObject;
+
+  NSLog(@"[ABR] accessLogEntryAdded: totalEntries=%lu lastEvent=%@",
+        (unsigned long)events.count, lastEvent ? @"present" : @"nil");
+
+  if (!lastEvent) {
+    return;
+  }
+
+  double indicatedBitrate = lastEvent.indicatedBitrate;
+  double observedBitrate = lastEvent.observedBitrate;
+  NSLog(@"[ABR] indicatedBitrate=%.0f observedBitrate=%.0f lastIndicatedBitrate=%.0f "
+        @"switchBitrate=%.0f",
+        indicatedBitrate, observedBitrate, _lastIndicatedBitrate,
+        lastEvent.switchBitrate);
+
+  // Only emit event when the bitrate actually changes (ABR switch).
+  if (indicatedBitrate > 0 && indicatedBitrate != _lastIndicatedBitrate) {
+    _lastIndicatedBitrate = indicatedBitrate;
+
+    // Look up the variant resolution by matching indicatedBitrate to asset variants.
+    // presentationSize is the render/display size and may not match the variant resolution.
+    NSInteger width = 0;
+    NSInteger height = 0;
+    if (@available(iOS 15.0, macOS 12.0, *)) {
+      AVURLAsset *urlAsset = (AVURLAsset *)item.asset;
+      if ([urlAsset isKindOfClass:[AVURLAsset class]]) {
+        double closestDelta = INFINITY;
+        for (AVAssetVariant *variant in urlAsset.variants) {
+          if (variant.videoAttributes) {
+            double delta = fabs(variant.peakBitRate - indicatedBitrate);
+            if (delta < closestDelta) {
+              closestDelta = delta;
+              CGSize res = variant.videoAttributes.presentationSize;
+              width = (NSInteger)res.width;
+              height = (NSInteger)res.height;
+            }
+          }
+        }
+      }
+    }
+    // Fallback to presentationSize if variant lookup didn't find a match.
+    if (width == 0 || height == 0) {
+      width = (NSInteger)item.presentationSize.width;
+      height = (NSInteger)item.presentationSize.height;
+    }
+
+    NSLog(@"[ABR] Dispatching quality event: %ldx%ld @ %.0f bps",
+          (long)width, (long)height, indicatedBitrate);
+    [self.eventListener videoPlayerDidChangeQualityWithWidth:width
+                                                     height:height
+                                                    bitrate:(NSInteger)indicatedBitrate];
+  } else {
+    NSLog(@"[ABR] Skipped: indicatedBitrate=%.0f (same as last or <= 0)", indicatedBitrate);
   }
 }
 
@@ -529,6 +596,101 @@ NS_INLINE CGFloat radiansToDegrees(CGFloat radians) {
   if (audioGroup && trackIndex >= 0 && trackIndex < (NSInteger)audioGroup.options.count) {
     AVMediaSelectionOption *option = audioGroup.options[trackIndex];
     [currentItem selectMediaOption:option inMediaSelectionGroup:audioGroup];
+  }
+}
+
+#pragma mark - ABR (Adaptive Bitrate) Control
+
+- (nullable NSArray<FVPPlatformVideoQuality *> *)getAvailableQualities:
+    (FlutterError *_Nullable *_Nonnull)error {
+  NSMutableArray<FVPPlatformVideoQuality *> *qualities = [[NSMutableArray alloc] init];
+
+  if (@available(iOS 15.0, macOS 12.0, *)) {
+    AVURLAsset *urlAsset = (AVURLAsset *)_player.currentItem.asset;
+    if ([urlAsset isKindOfClass:[AVURLAsset class]] &&
+        [urlAsset respondsToSelector:@selector(variants)]) {
+      NSArray<AVAssetVariant *> *variants = urlAsset.variants;
+      for (AVAssetVariant *variant in variants) {
+        // Only include variants with video attributes.
+        if (variant.videoAttributes) {
+          CGSize resolution = variant.videoAttributes.presentationSize;
+          double peakBitRate = variant.peakBitRate;
+          FVPPlatformVideoQuality *quality = [FVPPlatformVideoQuality
+              makeWithWidth:(NSInteger)resolution.width
+                     height:(NSInteger)resolution.height
+                    bitrate:(NSInteger)peakBitRate
+                      codec:nil
+                 isSelected:NO];
+          [qualities addObject:quality];
+        }
+      }
+    }
+  }
+  // On older iOS, return empty list — no API to enumerate HLS variants.
+  return qualities;
+}
+
+- (nullable FVPPlatformVideoQuality *)getCurrentQuality:
+    (FlutterError *_Nullable *_Nonnull)error {
+  AVPlayerItemAccessLog *accessLog = _player.currentItem.accessLog;
+  AVPlayerItemAccessLogEvent *lastEvent = accessLog.events.lastObject;
+  if (!lastEvent) {
+    return nil;
+  }
+
+  double bitrate = lastEvent.indicatedBitrate;
+  NSInteger width = 0;
+  NSInteger height = 0;
+
+  // Look up the variant resolution by matching indicatedBitrate.
+  if (@available(iOS 15.0, macOS 12.0, *)) {
+    AVURLAsset *urlAsset = (AVURLAsset *)_player.currentItem.asset;
+    if ([urlAsset isKindOfClass:[AVURLAsset class]]) {
+      double closestDelta = INFINITY;
+      for (AVAssetVariant *variant in urlAsset.variants) {
+        if (variant.videoAttributes) {
+          double delta = fabs(variant.peakBitRate - bitrate);
+          if (delta < closestDelta) {
+            closestDelta = delta;
+            CGSize res = variant.videoAttributes.presentationSize;
+            width = (NSInteger)res.width;
+            height = (NSInteger)res.height;
+          }
+        }
+      }
+    }
+  }
+  if (width == 0 || height == 0) {
+    width = (NSInteger)_player.currentItem.presentationSize.width;
+    height = (NSInteger)_player.currentItem.presentationSize.height;
+  }
+
+  FVPPlatformVideoQuality *quality = [FVPPlatformVideoQuality makeWithWidth:width
+                                                                     height:height
+                                                                    bitrate:(NSInteger)bitrate
+                                                                      codec:nil
+                                                                 isSelected:YES];
+  return quality;
+}
+
+- (void)setMaxBitrate:(NSInteger)maxBitrateBps
+                error:(FlutterError *_Nullable *_Nonnull)error {
+  NSLog(@"[ABR] setMaxBitrate: %ld bps (resetting lastIndicatedBitrate from %.0f)",
+        (long)maxBitrateBps, _lastIndicatedBitrate);
+  // Reset so the next access log entry always triggers an event,
+  // even if the bitrate matches a previously seen value (e.g. A→B→A).
+  _lastIndicatedBitrate = 0;
+  _player.currentItem.preferredPeakBitRate = (double)maxBitrateBps;
+}
+
+- (void)setMaxResolutionWidth:(NSInteger)width
+                       height:(NSInteger)height
+                        error:(FlutterError *_Nullable *_Nonnull)error {
+  NSLog(@"[ABR] setMaxResolution: %ldx%ld (resetting lastIndicatedBitrate from %.0f)",
+        (long)width, (long)height, _lastIndicatedBitrate);
+  _lastIndicatedBitrate = 0;
+  if (@available(iOS 11.0, macOS 10.13, *)) {
+    _player.currentItem.preferredMaximumResolution = CGSizeMake(width, height);
   }
 }
 

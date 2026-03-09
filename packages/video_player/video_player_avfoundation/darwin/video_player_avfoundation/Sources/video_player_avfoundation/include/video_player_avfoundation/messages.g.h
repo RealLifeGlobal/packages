@@ -18,6 +18,7 @@ NS_ASSUME_NONNULL_BEGIN
 @class FVPTexturePlayerIds;
 @class FVPMediaSelectionAudioTrackData;
 @class FVPPlatformMediaInfo;
+@class FVPPlatformVideoQuality;
 
 /// Information passed to the platform view creation.
 @interface FVPPlatformVideoViewCreationParams : NSObject
@@ -74,6 +75,22 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, strong, nullable) NSNumber * durationMs;
 @end
 
+/// Represents a video quality variant (resolution/bitrate combination).
+@interface FVPPlatformVideoQuality : NSObject
+/// `init` unavailable to enforce nonnull fields, see the `make` class method.
+- (instancetype)init NS_UNAVAILABLE;
++ (instancetype)makeWithWidth:(NSInteger )width
+    height:(NSInteger )height
+    bitrate:(NSInteger )bitrate
+    codec:(nullable NSString *)codec
+    isSelected:(BOOL )isSelected;
+@property(nonatomic, assign) NSInteger  width;
+@property(nonatomic, assign) NSInteger  height;
+@property(nonatomic, assign) NSInteger  bitrate;
+@property(nonatomic, copy, nullable) NSString * codec;
+@property(nonatomic, assign) BOOL  isSelected;
+@end
+
 /// The codec used by all APIs.
 NSObject<FlutterMessageCodec> *FVPGetMessagesCodec(void);
 
@@ -94,6 +111,13 @@ NSObject<FlutterMessageCodec> *FVPGetMessagesCodec(void);
 - (void)enableBackgroundPlaybackForPlayer:(NSInteger)playerId mediaInfo:(nullable FVPPlatformMediaInfo *)mediaInfo error:(FlutterError *_Nullable *_Nonnull)error;
 - (void)disableBackgroundPlaybackForPlayer:(NSInteger)playerId error:(FlutterError *_Nullable *_Nonnull)error;
 - (void)setAutoPipForPlayer:(NSInteger)playerId enabled:(BOOL)enabled error:(FlutterError *_Nullable *_Nonnull)error;
+- (void)setCacheMaxSize:(NSInteger)maxSizeBytes error:(FlutterError *_Nullable *_Nonnull)error;
+- (void)clearCache:(FlutterError *_Nullable *_Nonnull)error;
+/// @return `nil` only when `error != nil`.
+- (nullable NSNumber *)getCacheSize:(FlutterError *_Nullable *_Nonnull)error;
+/// @return `nil` only when `error != nil`.
+- (nullable NSNumber *)isCacheEnabled:(FlutterError *_Nullable *_Nonnull)error;
+- (void)setCacheEnabled:(BOOL)enabled error:(FlutterError *_Nullable *_Nonnull)error;
 @end
 
 extern void SetUpFVPAVFoundationVideoPlayerApi(id<FlutterBinaryMessenger> binaryMessenger, NSObject<FVPAVFoundationVideoPlayerApi> *_Nullable api);
@@ -114,6 +138,11 @@ extern void SetUpFVPAVFoundationVideoPlayerApiWithSuffix(id<FlutterBinaryMesseng
 /// @return `nil` only when `error != nil`.
 - (nullable NSArray<FVPMediaSelectionAudioTrackData *> *)getAudioTracks:(FlutterError *_Nullable *_Nonnull)error;
 - (void)selectAudioTrackAtIndex:(NSInteger)trackIndex error:(FlutterError *_Nullable *_Nonnull)error;
+/// @return `nil` only when `error != nil`.
+- (nullable NSArray<FVPPlatformVideoQuality *> *)getAvailableQualities:(FlutterError *_Nullable *_Nonnull)error;
+- (nullable FVPPlatformVideoQuality *)getCurrentQuality:(FlutterError *_Nullable *_Nonnull)error;
+- (void)setMaxBitrate:(NSInteger)maxBitrateBps error:(FlutterError *_Nullable *_Nonnull)error;
+- (void)setMaxResolutionWidth:(NSInteger)width height:(NSInteger)height error:(FlutterError *_Nullable *_Nonnull)error;
 @end
 
 extern void SetUpFVPVideoPlayerInstanceApi(id<FlutterBinaryMessenger> binaryMessenger, NSObject<FVPVideoPlayerInstanceApi> *_Nullable api);

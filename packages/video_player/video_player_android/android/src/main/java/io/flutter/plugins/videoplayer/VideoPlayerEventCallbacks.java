@@ -73,4 +73,9 @@ final class VideoPlayerEventCallbacks implements VideoPlayerCallbacks {
   public void onPipStateChanged(boolean isInPipMode, boolean wasDismissed, int widthDp, int heightDp) {
     eventSink.success(new PipStateEvent(isInPipMode, wasDismissed, (long) widthDp, (long) heightDp));
   }
+
+  @Override
+  public void onVideoQualityChanged(int width, int height, int bitrate, @Nullable String codec) {
+    eventSink.success(new VideoQualityChangedEvent((long) width, (long) height, (long) bitrate, codec));
+  }
 }
