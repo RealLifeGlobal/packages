@@ -20,6 +20,7 @@ export 'package:video_player_platform_interface/video_player_platform_interface.
         DataSourceType,
         DurationRange,
         MediaInfo,
+        VideoDecoderInfo,
         VideoFormat,
         VideoPlayerOptions,
         VideoPlayerWebOptions,
@@ -180,6 +181,8 @@ class VideoPlayerValue {
     this.isAutoEnterPipEnabled = false,
     this.pipSize,
     this.currentQuality,
+    this.decoderName,
+    this.isDecoderHardwareAccelerated,
   });
 
   /// Returns an instance for a video that hasn't been loaded.
@@ -269,6 +272,19 @@ class VideoPlayerValue {
   /// non-adaptive streams.
   final platform_interface.VideoQuality? currentQuality;
 
+  /// The name of the currently active video decoder.
+  ///
+  /// Null until the decoder is first initialized. Updated whenever the
+  /// decoder changes (e.g. after calling [VideoPlayerController.setVideoDecoder]).
+  /// Currently only reported on Android.
+  final String? decoderName;
+
+  /// Whether the currently active decoder is hardware-accelerated.
+  ///
+  /// Null until the decoder is first initialized.
+  /// Currently only reported on Android.
+  final bool? isDecoderHardwareAccelerated;
+
   /// The [size] of the currently loaded video.
   final Size size;
 
@@ -322,6 +338,8 @@ class VideoPlayerValue {
     bool? isAutoEnterPipEnabled,
     Size? pipSize = _defaultPipSize,
     platform_interface.VideoQuality? currentQuality,
+    String? decoderName,
+    bool? isDecoderHardwareAccelerated,
   }) {
     return VideoPlayerValue(
       duration: duration ?? this.duration,
@@ -346,6 +364,8 @@ class VideoPlayerValue {
       isAutoEnterPipEnabled: isAutoEnterPipEnabled ?? this.isAutoEnterPipEnabled,
       pipSize: pipSize != _defaultPipSize ? pipSize : this.pipSize,
       currentQuality: currentQuality ?? this.currentQuality,
+      decoderName: decoderName ?? this.decoderName,
+      isDecoderHardwareAccelerated: isDecoderHardwareAccelerated ?? this.isDecoderHardwareAccelerated,
     );
   }
 
@@ -370,7 +390,9 @@ class VideoPlayerValue {
         'isPlayingInBackground: $isPlayingInBackground, '
         'isAutoEnterPipEnabled: $isAutoEnterPipEnabled, '
         'pipSize: $pipSize, '
-        'currentQuality: $currentQuality)';
+        'currentQuality: $currentQuality, '
+        'decoderName: $decoderName, '
+        'isDecoderHardwareAccelerated: $isDecoderHardwareAccelerated)';
   }
 
   @override
@@ -397,7 +419,9 @@ class VideoPlayerValue {
           isPlayingInBackground == other.isPlayingInBackground &&
           isAutoEnterPipEnabled == other.isAutoEnterPipEnabled &&
           pipSize == other.pipSize &&
-          currentQuality == other.currentQuality;
+          currentQuality == other.currentQuality &&
+          decoderName == other.decoderName &&
+          isDecoderHardwareAccelerated == other.isDecoderHardwareAccelerated;
 
   @override
   int get hashCode => Object.hash(
@@ -414,7 +438,7 @@ class VideoPlayerValue {
     errorDescription,
     size,
     rotationCorrection,
-    Object.hash(isInitialized, isCompleted, isPipActive, isPlayingInBackground, isAutoEnterPipEnabled, pipSize, currentQuality),
+    Object.hash(isInitialized, isCompleted, isPipActive, isPlayingInBackground, isAutoEnterPipEnabled, pipSize, currentQuality, decoderName, isDecoderHardwareAccelerated),
   );
 }
 
@@ -726,6 +750,11 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
           if (event.quality != null) {
             value = value.copyWith(currentQuality: event.quality);
           }
+        case platform_interface.VideoEventType.decoderChanged:
+          value = value.copyWith(
+            decoderName: event.decoderName,
+            isDecoderHardwareAccelerated: event.isDecoderHardwareAccelerated,
+          );
         case platform_interface.VideoEventType.unknown:
           break;
       }
@@ -1214,6 +1243,45 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
       return;
     }
     await _videoPlayerPlatform.setMaxResolution(_playerId, width, height);
+  }
+
+  // Decoder selection methods
+
+  /// Returns the available video decoders for the current video.
+  ///
+  /// The list is filtered by the video's MIME type and indicates whether
+  /// each decoder is hardware-accelerated or software-only.
+  /// Currently only supported on Android.
+  Future<List<platform_interface.VideoDecoderInfo>>
+      getAvailableDecoders() async {
+    if (_isDisposedOrNotInitialized) {
+      return <platform_interface.VideoDecoderInfo>[];
+    }
+    return _videoPlayerPlatform.getAvailableDecoders(_playerId);
+  }
+
+  /// Returns the name of the currently active video decoder, or null if
+  /// no decoder has been initialized yet.
+  /// Currently only supported on Android.
+  Future<String?> getCurrentDecoderName() async {
+    if (_isDisposedOrNotInitialized) {
+      return null;
+    }
+    return _videoPlayerPlatform.getCurrentDecoderName(_playerId);
+  }
+
+  /// Forces the player to use a specific video decoder by name.
+  ///
+  /// Pass null to revert to automatic decoder selection.
+  /// This rebuilds the underlying player instance, causing a brief
+  /// playback interruption (~200-500ms). Position, volume, speed,
+  /// and looping state are preserved across the switch.
+  /// Currently only supported on Android.
+  Future<void> setVideoDecoder(String? decoderName) async {
+    if (_isDisposedOrNotInitialized) {
+      return;
+    }
+    await _videoPlayerPlatform.setVideoDecoder(_playerId, decoderName);
   }
 
   bool get _isDisposedOrNotInitialized => _isDisposed || !value.isInitialized;

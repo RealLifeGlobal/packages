@@ -161,6 +161,16 @@ class FakeController extends ValueNotifier<VideoPlayerValue>
   @override
   Future<void> setMaxResolution(int width, int height) async {}
 
+  @override
+  Future<List<VideoDecoderInfo>> getAvailableDecoders() async =>
+      <VideoDecoderInfo>[];
+
+  @override
+  Future<String?> getCurrentDecoderName() async => null;
+
+  @override
+  Future<void> setVideoDecoder(String? decoderName) async {}
+
   String? selectedAudioTrackId;
 }
 
@@ -1507,7 +1517,14 @@ void main() {
         'volume: 0.5, '
         'playbackSpeed: 1.5, '
         'errorDescription: null, '
-        'isCompleted: false),',
+        'isCompleted: false, '
+        'isPipActive: false, '
+        'isPlayingInBackground: false, '
+        'isAutoEnterPipEnabled: false, '
+        'pipSize: null, '
+        'currentQuality: null, '
+        'decoderName: null, '
+        'isDecoderHardwareAccelerated: null)',
       );
     });
 

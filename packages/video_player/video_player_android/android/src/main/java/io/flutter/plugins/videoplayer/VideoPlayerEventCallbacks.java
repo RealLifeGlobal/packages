@@ -78,4 +78,9 @@ final class VideoPlayerEventCallbacks implements VideoPlayerCallbacks {
   public void onVideoQualityChanged(int width, int height, int bitrate, @Nullable String codec) {
     eventSink.success(new VideoQualityChangedEvent((long) width, (long) height, (long) bitrate, codec));
   }
+
+  @Override
+  public void onDecoderChanged(@NonNull String decoderName, boolean isHardwareAccelerated) {
+    eventSink.success(new DecoderChangedEvent(decoderName, isHardwareAccelerated));
+  }
 }

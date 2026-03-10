@@ -850,6 +850,117 @@ class PlatformMediaInfo {
 ;
 }
 
+/// Sent when the active video decoder changes.
+///
+/// Corresponds to ExoPlayer's AnalyticsListener.onVideoDecoderInitialized.
+class DecoderChangedEvent extends PlatformVideoEvent {
+  DecoderChangedEvent({
+    required this.decoderName,
+    required this.isHardwareAccelerated,
+  });
+
+  String decoderName;
+
+  bool isHardwareAccelerated;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      decoderName,
+      isHardwareAccelerated,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static DecoderChangedEvent decode(Object result) {
+    result as List<Object?>;
+    return DecoderChangedEvent(
+      decoderName: result[0]! as String,
+      isHardwareAccelerated: result[1]! as bool,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! DecoderChangedEvent || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList())
+;
+}
+
+/// Describes a video decoder available on the device.
+class PlatformVideoDecoder {
+  PlatformVideoDecoder({
+    required this.name,
+    required this.mimeType,
+    required this.isHardwareAccelerated,
+    required this.isSoftwareOnly,
+    required this.isSelected,
+  });
+
+  String name;
+
+  String mimeType;
+
+  bool isHardwareAccelerated;
+
+  bool isSoftwareOnly;
+
+  bool isSelected;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      name,
+      mimeType,
+      isHardwareAccelerated,
+      isSoftwareOnly,
+      isSelected,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static PlatformVideoDecoder decode(Object result) {
+    result as List<Object?>;
+    return PlatformVideoDecoder(
+      name: result[0]! as String,
+      mimeType: result[1]! as String,
+      isHardwareAccelerated: result[2]! as bool,
+      isSoftwareOnly: result[3]! as bool,
+      isSelected: result[4]! as bool,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PlatformVideoDecoder || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(encode(), other.encode());
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => Object.hashAll(_toList())
+;
+}
+
 /// Represents a video quality variant (resolution/bitrate combination).
 class PlatformVideoQuality {
   PlatformVideoQuality({
@@ -968,8 +1079,14 @@ class _PigeonCodec extends StandardMessageCodec {
     }    else if (value is PlatformMediaInfo) {
       buffer.putUint8(144);
       writeValue(buffer, value.encode());
-    }    else if (value is PlatformVideoQuality) {
+    }    else if (value is DecoderChangedEvent) {
       buffer.putUint8(145);
+      writeValue(buffer, value.encode());
+    }    else if (value is PlatformVideoDecoder) {
+      buffer.putUint8(146);
+      writeValue(buffer, value.encode());
+    }    else if (value is PlatformVideoQuality) {
+      buffer.putUint8(147);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -1014,6 +1131,10 @@ class _PigeonCodec extends StandardMessageCodec {
       case 144:
         return PlatformMediaInfo.decode(readValue(buffer)!);
       case 145:
+        return DecoderChangedEvent.decode(readValue(buffer)!);
+      case 146:
+        return PlatformVideoDecoder.decode(readValue(buffer)!);
+      case 147:
         return PlatformVideoQuality.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -1624,6 +1745,65 @@ class VideoPlayerInstanceApi {
       binaryMessenger: pigeonVar_binaryMessenger,
     );
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[width, height]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
+
+  /// Returns the available video decoders for the current video's MIME type.
+  Future<List<PlatformVideoDecoder>> getAvailableDecoders() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.VideoPlayerInstanceApi.getAvailableDecoders$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: false,
+    )
+    !;
+    return (pigeonVar_replyValue as List<Object?>).cast<PlatformVideoDecoder>();
+  }
+
+  /// Returns the name of the currently active video decoder, or null.
+  Future<String?> getCurrentDecoderName() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.VideoPlayerInstanceApi.getCurrentDecoderName$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+    return pigeonVar_replyValue as String?;
+  }
+
+  /// Forces a specific video decoder by name, or null for automatic.
+  Future<void> setVideoDecoder(String? decoderName) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_android.VideoPlayerInstanceApi.setVideoDecoder$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[decoderName]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     _extractReplyValueOrThrow(

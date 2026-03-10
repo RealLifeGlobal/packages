@@ -252,6 +252,35 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
   Future<void> setMaxResolution(int playerId, int width, int height) {
     throw UnimplementedError('setMaxResolution() has not been implemented.');
   }
+
+  // Decoder selection methods
+
+  /// Returns the available video decoders for the given player.
+  ///
+  /// The list is filtered by the current video's MIME type. Each entry
+  /// indicates whether the decoder is hardware-accelerated or software-only.
+  Future<List<VideoDecoderInfo>> getAvailableDecoders(int playerId) {
+    throw UnimplementedError(
+      'getAvailableDecoders() has not been implemented.',
+    );
+  }
+
+  /// Returns the name of the currently active video decoder, or null if
+  /// no decoder has been initialized yet.
+  Future<String?> getCurrentDecoderName(int playerId) {
+    throw UnimplementedError(
+      'getCurrentDecoderName() has not been implemented.',
+    );
+  }
+
+  /// Forces the player to use a specific video decoder by name.
+  ///
+  /// Pass null to revert to automatic decoder selection.
+  /// This rebuilds the underlying player instance, causing a brief
+  /// playback interruption (~200-500ms).
+  Future<void> setVideoDecoder(int playerId, String? decoderName) {
+    throw UnimplementedError('setVideoDecoder() has not been implemented.');
+  }
 }
 
 class _PlaceholderImplementation extends VideoPlayerPlatform {}
@@ -376,6 +405,8 @@ class VideoEvent {
     this.wasDismissed,
     this.pipWindowSize,
     this.quality,
+    this.decoderName,
+    this.isDecoderHardwareAccelerated,
   });
 
   /// The type of the event.
@@ -430,6 +461,16 @@ class VideoEvent {
   /// Only used if [eventType] is [VideoEventType.qualityChanged].
   final VideoQuality? quality;
 
+  /// The name of the active video decoder.
+  ///
+  /// Only used if [eventType] is [VideoEventType.decoderChanged].
+  final String? decoderName;
+
+  /// Whether the active decoder is hardware-accelerated.
+  ///
+  /// Only used if [eventType] is [VideoEventType.decoderChanged].
+  final bool? isDecoderHardwareAccelerated;
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
@@ -444,7 +485,9 @@ class VideoEvent {
             isPipActive == other.isPipActive &&
             wasDismissed == other.wasDismissed &&
             pipWindowSize == other.pipWindowSize &&
-            quality == other.quality;
+            quality == other.quality &&
+            decoderName == other.decoderName &&
+            isDecoderHardwareAccelerated == other.isDecoderHardwareAccelerated;
   }
 
   @override
@@ -459,6 +502,8 @@ class VideoEvent {
     wasDismissed,
     pipWindowSize,
     quality,
+    decoderName,
+    isDecoderHardwareAccelerated,
   );
 }
 
@@ -495,6 +540,9 @@ enum VideoEventType {
 
   /// The video quality has changed (ABR switch).
   qualityChanged,
+
+  /// The video decoder has changed.
+  decoderChanged,
 
   /// An unknown event has been received.
   unknown,
@@ -869,6 +917,54 @@ class VideoQuality {
   @override
   String toString() =>
       'VideoQuality(${width}x$height @ ${bitrate}bps, codec: $codec, selected: $isSelected)';
+}
+
+/// Describes a video decoder available on the device.
+@immutable
+class VideoDecoderInfo {
+  /// Constructs a [VideoDecoderInfo].
+  const VideoDecoderInfo({
+    required this.name,
+    required this.mimeType,
+    required this.isHardwareAccelerated,
+    required this.isSoftwareOnly,
+    required this.isSelected,
+  });
+
+  /// The codec name (e.g. 'OMX.qcom.video.decoder.avc',
+  /// 'c2.android.avc.decoder').
+  final String name;
+
+  /// The MIME type this decoder handles (e.g. 'video/avc').
+  final String mimeType;
+
+  /// Whether this decoder is hardware-accelerated.
+  final bool isHardwareAccelerated;
+
+  /// Whether this decoder is software-only.
+  final bool isSoftwareOnly;
+
+  /// Whether this decoder is currently active.
+  final bool isSelected;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VideoDecoderInfo &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          mimeType == other.mimeType &&
+          isHardwareAccelerated == other.isHardwareAccelerated &&
+          isSoftwareOnly == other.isSoftwareOnly &&
+          isSelected == other.isSelected;
+
+  @override
+  int get hashCode =>
+      Object.hash(name, mimeType, isHardwareAccelerated, isSoftwareOnly, isSelected);
+
+  @override
+  String toString() =>
+      'VideoDecoderInfo($name, $mimeType, hw: $isHardwareAccelerated, sw: $isSoftwareOnly, selected: $isSelected)';
 }
 
 /// Media information for lock screen / notification display during

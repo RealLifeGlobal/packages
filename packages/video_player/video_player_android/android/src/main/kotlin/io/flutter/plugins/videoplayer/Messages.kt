@@ -683,6 +683,87 @@ data class PlatformMediaInfo (
 }
 
 /**
+ * Sent when the active video decoder changes.
+ *
+ * Corresponds to ExoPlayer's AnalyticsListener.onVideoDecoderInitialized.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class DecoderChangedEvent (
+  val decoderName: String,
+  val isHardwareAccelerated: Boolean
+) : PlatformVideoEvent()
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): DecoderChangedEvent {
+      val decoderName = pigeonVar_list[0] as String
+      val isHardwareAccelerated = pigeonVar_list[1] as Boolean
+      return DecoderChangedEvent(decoderName, isHardwareAccelerated)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      decoderName,
+      isHardwareAccelerated,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other !is DecoderChangedEvent) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    return MessagesPigeonUtils.deepEquals(toList(), other.toList())  }
+
+  override fun hashCode(): Int = toList().hashCode()
+}
+
+/**
+ * Describes a video decoder available on the device.
+ *
+ * Generated class from Pigeon that represents data sent in messages.
+ */
+data class PlatformVideoDecoder (
+  val name: String,
+  val mimeType: String,
+  val isHardwareAccelerated: Boolean,
+  val isSoftwareOnly: Boolean,
+  val isSelected: Boolean
+)
+ {
+  companion object {
+    fun fromList(pigeonVar_list: List<Any?>): PlatformVideoDecoder {
+      val name = pigeonVar_list[0] as String
+      val mimeType = pigeonVar_list[1] as String
+      val isHardwareAccelerated = pigeonVar_list[2] as Boolean
+      val isSoftwareOnly = pigeonVar_list[3] as Boolean
+      val isSelected = pigeonVar_list[4] as Boolean
+      return PlatformVideoDecoder(name, mimeType, isHardwareAccelerated, isSoftwareOnly, isSelected)
+    }
+  }
+  fun toList(): List<Any?> {
+    return listOf(
+      name,
+      mimeType,
+      isHardwareAccelerated,
+      isSoftwareOnly,
+      isSelected,
+    )
+  }
+  override fun equals(other: Any?): Boolean {
+    if (other !is PlatformVideoDecoder) {
+      return false
+    }
+    if (this === other) {
+      return true
+    }
+    return MessagesPigeonUtils.deepEquals(toList(), other.toList())  }
+
+  override fun hashCode(): Int = toList().hashCode()
+}
+
+/**
  * Represents a video quality variant (resolution/bitrate combination).
  *
  * Generated class from Pigeon that represents data sent in messages.
@@ -810,6 +891,16 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
       }
       145.toByte() -> {
         return (readValue(buffer) as? List<Any?>)?.let {
+          DecoderChangedEvent.fromList(it)
+        }
+      }
+      146.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
+          PlatformVideoDecoder.fromList(it)
+        }
+      }
+      147.toByte() -> {
+        return (readValue(buffer) as? List<Any?>)?.let {
           PlatformVideoQuality.fromList(it)
         }
       }
@@ -882,8 +973,16 @@ private open class MessagesPigeonCodec : StandardMessageCodec() {
         stream.write(144)
         writeValue(stream, value.toList())
       }
-      is PlatformVideoQuality -> {
+      is DecoderChangedEvent -> {
         stream.write(145)
+        writeValue(stream, value.toList())
+      }
+      is PlatformVideoDecoder -> {
+        stream.write(146)
+        writeValue(stream, value.toList())
+      }
+      is PlatformVideoQuality -> {
+        stream.write(147)
         writeValue(stream, value.toList())
       }
       else -> super.writeValue(stream, value)
@@ -1244,6 +1343,12 @@ interface VideoPlayerInstanceApi {
   fun setMaxBitrate(maxBitrateBps: Long)
   /** Sets the maximum video resolution. */
   fun setMaxResolution(width: Long, height: Long)
+  /** Returns the available video decoders for the current video's MIME type. */
+  fun getAvailableDecoders(): List<PlatformVideoDecoder>
+  /** Returns the name of the currently active video decoder, or null. */
+  fun getCurrentDecoderName(): String?
+  /** Forces a specific video decoder by name, or null for automatic. */
+  fun setVideoDecoder(decoderName: String?)
 
   companion object {
     /** The codec used by VideoPlayerInstanceApi. */
@@ -1479,6 +1584,54 @@ interface VideoPlayerInstanceApi {
             val heightArg = args[1] as Long
             val wrapped: List<Any?> = try {
               api.setMaxResolution(widthArg, heightArg)
+              listOf(null)
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.video_player_android.VideoPlayerInstanceApi.getAvailableDecoders$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.getAvailableDecoders())
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.video_player_android.VideoPlayerInstanceApi.getCurrentDecoderName$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { _, reply ->
+            val wrapped: List<Any?> = try {
+              listOf(api.getCurrentDecoderName())
+            } catch (exception: Throwable) {
+              MessagesPigeonUtils.wrapError(exception)
+            }
+            reply.reply(wrapped)
+          }
+        } else {
+          channel.setMessageHandler(null)
+        }
+      }
+      run {
+        val channel = BasicMessageChannel<Any?>(binaryMessenger, "dev.flutter.pigeon.video_player_android.VideoPlayerInstanceApi.setVideoDecoder$separatedMessageChannelSuffix", codec)
+        if (api != null) {
+          channel.setMessageHandler { message, reply ->
+            val args = message as List<Any?>
+            val decoderNameArg = args[0] as String?
+            val wrapped: List<Any?> = try {
+              api.setVideoDecoder(decoderNameArg)
               listOf(null)
             } catch (exception: Throwable) {
               MessagesPigeonUtils.wrapError(exception)

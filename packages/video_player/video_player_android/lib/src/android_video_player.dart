@@ -385,6 +385,35 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
     return _playerWith(id: playerId).setMaxResolution(width, height);
   }
 
+  // Decoder selection methods
+
+  @override
+  Future<List<VideoDecoderInfo>> getAvailableDecoders(int playerId) async {
+    final List<PlatformVideoDecoder> decoders =
+        await _playerWith(id: playerId).getAvailableDecoders();
+    return decoders
+        .map(
+          (PlatformVideoDecoder d) => VideoDecoderInfo(
+            name: d.name,
+            mimeType: d.mimeType,
+            isHardwareAccelerated: d.isHardwareAccelerated,
+            isSoftwareOnly: d.isSoftwareOnly,
+            isSelected: d.isSelected,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<String?> getCurrentDecoderName(int playerId) {
+    return _playerWith(id: playerId).getCurrentDecoderName();
+  }
+
+  @override
+  Future<void> setVideoDecoder(int playerId, String? decoderName) {
+    return _playerWith(id: playerId).setVideoDecoder(decoderName);
+  }
+
   _PlayerInstance _playerWith({required int id}) {
     final _PlayerInstance? player = _players[id];
     return player ?? (throw StateError('No active player with ID $id.'));
@@ -429,6 +458,7 @@ class _PlayerInstance {
       StreamController<VideoEvent>();
   late final StreamSubscription<dynamic> _eventSubscription;
   bool _isDisposed = false;
+  bool _isInitialized = false;
   Timer? _bufferPollingTimer;
   int _lastBufferPosition = -1;
   bool _isBuffering = false;
@@ -488,6 +518,18 @@ class _PlayerInstance {
     return _api.setMaxResolution(width, height);
   }
 
+  Future<List<PlatformVideoDecoder>> getAvailableDecoders() {
+    return _api.getAvailableDecoders();
+  }
+
+  Future<String?> getCurrentDecoderName() {
+    return _api.getCurrentDecoderName();
+  }
+
+  Future<void> setVideoDecoder(String? decoderName) {
+    return _api.setVideoDecoder(decoderName);
+  }
+
   Future<void> selectAudioTrack(String trackId) async {
     // Parse the trackId to get groupIndex and trackIndex
     final List<String> parts = trackId.split('_');
@@ -542,6 +584,8 @@ class _PlayerInstance {
         if (!_isDisposed) {
           _updateBufferPosition(position);
         }
+      }).catchError((_) {
+        // Can fail briefly during ExoPlayer rebuild (decoder switch).
       });
     }
   }
@@ -563,6 +607,11 @@ class _PlayerInstance {
   void _onStreamEvent(PlatformVideoEvent event) {
     switch (event) {
       case InitializationEvent _:
+        if (_isInitialized) {
+          // Suppress duplicate init events (e.g. after decoder switch rebuild).
+          break;
+        }
+        _isInitialized = true;
         _eventStreamController.add(
           VideoEvent(
             eventType: VideoEventType.initialized,
@@ -577,9 +626,13 @@ class _PlayerInstance {
         _bufferPollingTimer = Timer.periodic(const Duration(seconds: 1), (
           Timer timer,
         ) async {
-          final int position = await _api.getBufferedPosition();
-          if (!_isDisposed) {
-            _updateBufferPosition(position);
+          try {
+            final int position = await _api.getBufferedPosition();
+            if (!_isDisposed) {
+              _updateBufferPosition(position);
+            }
+          } catch (_) {
+            // Can fail briefly during ExoPlayer rebuild (decoder switch).
           }
         });
       case IsPlayingStateEvent _:
@@ -642,6 +695,14 @@ class _PlayerInstance {
               codec: event.codec,
               isSelected: true,
             ),
+          ),
+        );
+      case DecoderChangedEvent _:
+        _eventStreamController.add(
+          VideoEvent(
+            eventType: VideoEventType.decoderChanged,
+            decoderName: event.decoderName,
+            isDecoderHardwareAccelerated: event.isHardwareAccelerated,
           ),
         );
     }

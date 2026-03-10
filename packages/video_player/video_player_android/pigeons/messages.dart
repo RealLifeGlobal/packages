@@ -189,6 +189,30 @@ class PlatformMediaInfo {
   int? durationMs;
 }
 
+/// Sent when the active video decoder changes.
+///
+/// Corresponds to ExoPlayer's AnalyticsListener.onVideoDecoderInitialized.
+class DecoderChangedEvent extends PlatformVideoEvent {
+  late final String decoderName;
+  late final bool isHardwareAccelerated;
+}
+
+/// Describes a video decoder available on the device.
+class PlatformVideoDecoder {
+  PlatformVideoDecoder({
+    required this.name,
+    required this.mimeType,
+    required this.isHardwareAccelerated,
+    required this.isSoftwareOnly,
+    required this.isSelected,
+  });
+  String name;
+  String mimeType;
+  bool isHardwareAccelerated;
+  bool isSoftwareOnly;
+  bool isSelected;
+}
+
 /// Represents a video quality variant (resolution/bitrate combination).
 class PlatformVideoQuality {
   PlatformVideoQuality({
@@ -275,6 +299,17 @@ abstract class VideoPlayerInstanceApi {
 
   /// Sets the maximum video resolution.
   void setMaxResolution(int width, int height);
+
+  // Decoder selection methods
+
+  /// Returns the available video decoders for the current video's MIME type.
+  List<PlatformVideoDecoder> getAvailableDecoders();
+
+  /// Returns the name of the currently active video decoder, or null.
+  String? getCurrentDecoderName();
+
+  /// Forces a specific video decoder by name, or null for automatic.
+  void setVideoDecoder(String? decoderName);
 }
 
 @EventChannelApi()

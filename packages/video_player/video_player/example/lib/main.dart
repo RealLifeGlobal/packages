@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:video_player/video_player.dart';
 
 import 'audio_tracks_demo.dart';
+import 'decoder_demo.dart';
 
 void main() {
   runApp(MaterialApp(home: _App()));
@@ -21,7 +22,7 @@ class _App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 4,
+      length: 5,
       child: Scaffold(
         key: const ValueKey<String>('home_page'),
         appBar: AppBar(
@@ -74,6 +75,7 @@ class _App extends StatelessWidget {
               Tab(icon: Icon(Icons.insert_drive_file), text: 'Asset'),
               Tab(icon: Icon(Icons.list), text: 'List example'),
               Tab(icon: Icon(Icons.hd), text: 'HLS / ABR'),
+              Tab(icon: Icon(Icons.memory), text: 'Decoders'),
             ],
           ),
         ),
@@ -94,6 +96,10 @@ class _App extends StatelessWidget {
             _ViewTypeTabBar(
               builder: (VideoViewType viewType) =>
                   _HlsAbrDemo(viewType),
+            ),
+            _ViewTypeTabBar(
+              builder: (VideoViewType viewType) =>
+                  DecoderDemo(viewType),
             ),
           ],
         ),
