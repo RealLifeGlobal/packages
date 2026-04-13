@@ -23,6 +23,11 @@
   UIBackgroundTaskIdentifier _backgroundTask;
   MPMediaItemArtwork *_cachedArtwork;
   NSString *_artworkUrl;
+  // Snapshot of user intent captured just before the app leaves the active
+  // state. Used by handleEnterBackground: to decide whether re-asserting
+  // playback is actually what the user wanted, instead of force-resuming a
+  // video the user had explicitly paused.
+  BOOL _wasPlayingBeforeBackground;
 #endif
 }
 
@@ -59,6 +64,7 @@
   _cachedDuration = nil;
   _cachedArtwork = nil;
   _artworkUrl = artworkUrl;
+  _wasPlayingBeforeBackground = NO;
 
   if (artworkUrl.length > 0) {
     [self loadArtworkFromUrl:artworkUrl];
@@ -93,6 +99,13 @@
         session.category, _player.rate);
 
   // Observe app lifecycle to keep playback alive across background transitions.
+  // willResignActive fires before didEnterBackground, while the player's rate
+  // still reflects the user's intent — we snapshot it there so the
+  // background handler can make an informed decision.
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(handleWillResignActive:)
+                                               name:UIApplicationWillResignActiveNotification
+                                             object:nil];
   [[NSNotificationCenter defaultCenter] addObserver:self
                                            selector:@selector(handleEnterBackground:)
                                                name:UIApplicationDidEnterBackgroundNotification
@@ -164,10 +177,29 @@
 
 #pragma mark - App Lifecycle
 
+- (void)handleWillResignActive:(NSNotification *)notification {
+  if (!_isEnabled) return;
+
+  // At this point the app is still active, so _player.rate reflects the
+  // user's actual intent — not any pause iOS might inject during the
+  // transition to background. Snapshot it for handleEnterBackground:.
+  _wasPlayingBeforeBackground = (_player.rate > 0);
+  NSLog(@"video_player: [BG] willResignActive — wasPlayingBeforeBackground=%@",
+        _wasPlayingBeforeBackground ? @"YES" : @"NO");
+}
+
 - (void)handleEnterBackground:(NSNotification *)notification {
   if (!_isEnabled) return;
 
-  NSLog(@"video_player: [BG] App entered background — player.rate=%f, starting background task", _player.rate);
+  NSLog(@"video_player: [BG] App entered background — player.rate=%f, wasPlaying=%@",
+        _player.rate, _wasPlayingBeforeBackground ? @"YES" : @"NO");
+
+  // If the user had the video paused before the transition, respect that —
+  // do not start a background task, do not re-assert playback.
+  if (!_wasPlayingBeforeBackground) {
+    NSLog(@"video_player: [BG] User had video paused, leaving it paused");
+    return;
+  }
 
   // Start a background task to buy time for the audio session to take over.
   // Without this, iOS may suspend the process before AVPlayer establishes
@@ -190,7 +222,8 @@
   // Schedule a follow-up to ensure playback is still active after the transition settles.
   dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(0.5 * NSEC_PER_SEC)),
                  dispatch_get_main_queue(), ^{
-    if (self->_isEnabled && self->_player.rate == 0 && self->_player.currentItem) {
+    if (self->_isEnabled && self->_wasPlayingBeforeBackground &&
+        self->_player.rate == 0 && self->_player.currentItem) {
       NSLog(@"video_player: [BG] Player still paused after 0.5s, re-starting");
       [self->_player play];
     }
@@ -232,6 +265,9 @@
 }
 
 - (void)removeAppLifecycleObservers {
+  [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                  name:UIApplicationWillResignActiveNotification
+                                                object:nil];
   [[NSNotificationCenter defaultCenter] removeObserver:self
                                                   name:UIApplicationDidEnterBackgroundNotification
                                                 object:nil];
