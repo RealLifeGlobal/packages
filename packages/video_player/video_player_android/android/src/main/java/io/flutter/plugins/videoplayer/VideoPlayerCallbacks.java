@@ -26,4 +26,10 @@ public interface VideoPlayerCallbacks {
   void onIsPlayingStateUpdate(boolean isPlaying);
 
   void onAudioTrackChanged(@Nullable String selectedTrackId);
+
+  void onPipStateChanged(boolean isInPipMode, boolean wasDismissed, int widthDp, int heightDp);
+
+  void onVideoQualityChanged(int width, int height, int bitrate, @Nullable String codec);
+
+  void onDecoderChanged(@NonNull String decoderName, boolean isHardwareAccelerated);
 }

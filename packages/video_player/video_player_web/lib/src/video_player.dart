@@ -52,6 +52,14 @@ class VideoPlayer {
   bool _isInitialized = false;
   bool _isBuffering = false;
 
+  // -- PiP state --
+  bool _isPipActive = false;
+  web.EventHandler? _onEnterPip;
+  web.EventHandler? _onLeavePip;
+
+  // -- MediaSession state --
+  bool _mediaSessionEnabled = false;
+
   /// Returns the [Stream] of [VideoEvent]s from the inner [web.HTMLVideoElement].
   Stream<VideoEvent> get events => _eventController.stream;
 
@@ -112,6 +120,7 @@ class VideoPlayer {
           isPlaying: true,
         ),
       );
+      _updateMediaSessionPlaybackState();
     });
 
     _videoElement.onPause.listen((dynamic _) {
@@ -121,12 +130,51 @@ class VideoPlayer {
           isPlaying: false,
         ),
       );
+      _updateMediaSessionPlaybackState();
     });
 
     _videoElement.onEnded.listen((dynamic _) {
       setBuffering(false);
       _eventController.add(VideoEvent(eventType: VideoEventType.completed));
     });
+
+    // Listen for timeupdate to keep MediaSession position in sync.
+    _videoElement.addEventListener(
+      'timeupdate',
+      ((web.Event _) {
+        _updateMediaSessionPositionState();
+      }).toJS,
+    );
+
+    // PiP event listeners.
+    _onEnterPip = ((web.Event event) {
+      _isPipActive = true;
+      final pipEvent = event as web.PictureInPictureEvent;
+      final web.PictureInPictureWindow pipWindow =
+          pipEvent.pictureInPictureWindow;
+      _eventController.add(
+        VideoEvent(
+          eventType: VideoEventType.pipStateChanged,
+          isPipActive: true,
+          pipWindowSize: Size(
+            pipWindow.width.toDouble(),
+            pipWindow.height.toDouble(),
+          ),
+        ),
+      );
+    }).toJS;
+    _videoElement.addEventListener('enterpictureinpicture', _onEnterPip);
+
+    _onLeavePip = ((web.Event _) {
+      _isPipActive = false;
+      _eventController.add(
+        VideoEvent(
+          eventType: VideoEventType.pipStateChanged,
+          isPipActive: false,
+        ),
+      );
+    }).toJS;
+    _videoElement.addEventListener('leavepictureinpicture', _onLeavePip);
 
     // The `src` of the _videoElement is the last property that is set, so all
     // the listeners for the events that the plugin cares about are attached.
@@ -138,6 +186,10 @@ class VideoPlayer {
     // iOS to ensure the first frame becomes visible before playback begins.
     _videoElement.load();
   }
+
+  // ---------------------------------------------------------------------------
+  // Playback controls
+  // ---------------------------------------------------------------------------
 
   /// Attempts to play the video.
   ///
@@ -240,6 +292,10 @@ class VideoPlayer {
     return Duration(milliseconds: (_videoElement.currentTime * 1000).round());
   }
 
+  // ---------------------------------------------------------------------------
+  // Web options
+  // ---------------------------------------------------------------------------
+
   /// Sets options
   Future<void> setOptions(VideoPlayerWebOptions options) async {
     // In case this method is called multiple times, reset options.
@@ -283,8 +339,285 @@ class VideoPlayer {
     _videoElement.removeAttribute('poster');
   }
 
+  // ---------------------------------------------------------------------------
+  // Picture-in-Picture
+  // ---------------------------------------------------------------------------
+
+  /// Whether the browser supports the Picture-in-Picture API.
+  ///
+  /// Returns `false` on Firefox (non-standard PiP, not programmable) and
+  /// browsers that don't implement the W3C PiP spec.
+  bool get isPipSupported {
+    try {
+      return web.document.pictureInPictureEnabled;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  /// Enters Picture-in-Picture mode.
+  ///
+  /// Throws [PlatformException] if PiP is not supported, the video element
+  /// has `disablePictureInPicture` set, or a user gesture is required.
+  Future<void> enterPip() async {
+    try {
+      await _videoElement.requestPictureInPicture().toDart;
+    } catch (e) {
+      if (e is web.DOMException) {
+        throw PlatformException(
+          code: e.name,
+          message: e.message,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  /// Exits Picture-in-Picture mode.
+  ///
+  /// No-op if PiP is not currently active.
+  Future<void> exitPip() async {
+    if (web.document.pictureInPictureElement == null) {
+      return;
+    }
+    try {
+      await web.document.exitPictureInPicture().toDart;
+    } catch (e) {
+      if (e is web.DOMException) {
+        throw PlatformException(
+          code: e.name,
+          message: e.message,
+        );
+      }
+      rethrow;
+    }
+  }
+
+  /// Whether PiP is currently active for this video element.
+  bool get isPipActive => _isPipActive;
+
+  // ---------------------------------------------------------------------------
+  // MediaSession (background playback metadata & controls)
+  // ---------------------------------------------------------------------------
+
+  /// Sets up the browser's MediaSession with metadata and action handlers.
+  ///
+  /// On the web, "background playback" works natively (audio continues when
+  /// the tab is in the background). This method configures the browser's
+  /// MediaSession API so that OS-level media controls (lock screen, media
+  /// overlay, notification) display the correct metadata and respond to
+  /// play/pause/seek actions.
+  void enableMediaSession(MediaInfo? mediaInfo) {
+    _mediaSessionEnabled = true;
+    _setupMediaSession(mediaInfo);
+  }
+
+  /// Tears down the MediaSession configuration.
+  void disableMediaSession() {
+    _mediaSessionEnabled = false;
+    setAutoEnterPip(false);
+    _teardownMediaSession();
+  }
+
+  void _setupMediaSession(MediaInfo? mediaInfo) {
+    final web.MediaSession mediaSession;
+    try {
+      mediaSession = web.window.navigator.mediaSession;
+    } catch (_) {
+      // MediaSession not supported in this browser.
+      return;
+    }
+
+    // Set metadata.
+    if (mediaInfo != null) {
+      final artwork = <web.MediaImage>[];
+      if (mediaInfo.artworkUrl != null) {
+        artwork.add(
+          web.MediaImage(src: mediaInfo.artworkUrl!, sizes: '512x512'),
+        );
+      }
+      mediaSession.metadata = web.MediaMetadata(
+        web.MediaMetadataInit(
+          title: mediaInfo.title,
+          artist: mediaInfo.artist ?? '',
+          artwork: artwork.toJS,
+        ),
+      );
+    }
+
+    // Action handlers.
+    mediaSession.setActionHandler(
+      'play',
+      ((MediaSessionActionDetails _) {
+        play();
+      }).toJS,
+    );
+
+    mediaSession.setActionHandler(
+      'pause',
+      ((MediaSessionActionDetails _) {
+        pause();
+      }).toJS,
+    );
+
+    mediaSession.setActionHandler(
+      'seekto',
+      ((MediaSessionActionDetails details) {
+        final double? seekTime = details.seekTime;
+        if (seekTime != null) {
+          seekTo(Duration(milliseconds: (seekTime * 1000).round()));
+        }
+      }).toJS,
+    );
+
+    mediaSession.setActionHandler(
+      'seekbackward',
+      ((MediaSessionActionDetails details) {
+        final double offset = details.seekOffset ?? 10;
+        final Duration current = getPosition();
+        final int target = current.inMilliseconds - (offset * 1000).round();
+        seekTo(Duration(milliseconds: target < 0 ? 0 : target));
+      }).toJS,
+    );
+
+    mediaSession.setActionHandler(
+      'seekforward',
+      ((MediaSessionActionDetails details) {
+        final double offset = details.seekOffset ?? 10;
+        final Duration current = getPosition();
+        seekTo(
+          Duration(
+            milliseconds: current.inMilliseconds + (offset * 1000).round(),
+          ),
+        );
+      }).toJS,
+    );
+
+    // PiP handler — invoked by Chrome when the user taps the PiP button in
+    // media controls ("useraction") or, on eligible pages, when the user
+    // switches tabs ("contentoccluded"). Chrome provides user activation so
+    // requestPictureInPicture() works without a prior gesture.
+    try {
+      mediaSession.setActionHandler(
+        'enterpictureinpicture',
+        ((MediaSessionActionDetails _) {
+          _videoElement.requestPictureInPicture().toDart.ignore();
+        }).toJS,
+      );
+    } catch (_) {
+      // enterpictureinpicture action not supported in this browser.
+    }
+
+    _updateMediaSessionPlaybackState();
+    _updateMediaSessionPositionState();
+  }
+
+  void _teardownMediaSession() {
+    final web.MediaSession mediaSession;
+    try {
+      mediaSession = web.window.navigator.mediaSession;
+    } catch (_) {
+      return;
+    }
+
+    mediaSession.metadata = null;
+    mediaSession.playbackState = 'none';
+    const actions = <String>[
+      'play',
+      'pause',
+      'seekto',
+      'seekbackward',
+      'seekforward',
+      'enterpictureinpicture',
+    ];
+    for (final action in actions) {
+      try {
+        mediaSession.setActionHandler(action, null);
+      } catch (_) {
+        // Some actions may not be supported in all browsers.
+      }
+    }
+  }
+
+  void _updateMediaSessionPlaybackState() {
+    if (!_mediaSessionEnabled) {
+      return;
+    }
+    try {
+      final web.MediaSession mediaSession = web.window.navigator.mediaSession;
+      mediaSession.playbackState =
+          _videoElement.paused ? 'paused' : 'playing';
+    } catch (_) {
+      // MediaSession not available.
+    }
+  }
+
+  void _updateMediaSessionPositionState() {
+    if (!_mediaSessionEnabled) {
+      return;
+    }
+    try {
+      final web.MediaSession mediaSession = web.window.navigator.mediaSession;
+      final double duration = _videoElement.duration;
+      if (duration.isFinite && duration > 0) {
+        mediaSession.setPositionState(
+          web.MediaPositionState(
+            duration: duration,
+            playbackRate: _videoElement.playbackRate,
+            position: _videoElement.currentTime,
+          ),
+        );
+      }
+    } catch (_) {
+      // MediaSession not available.
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Auto-PiP
+  // ---------------------------------------------------------------------------
+
+  /// No-op on web. Auto-PiP on tab switch is not supported because Flutter
+  /// web renders the video element inside a platform view (not the top frame),
+  /// which Chrome requires for automatic PiP invocation.
+  ///
+  /// PiP is still available on web via:
+  /// - Chrome's media controls PiP button (when MediaSession is enabled)
+  /// - Programmatic [enterPip] / [exitPip] calls (require user gesture)
+  void setAutoEnterPip(bool enabled) {
+    // No-op on web — auto-PiP requires media in the top frame.
+  }
+
+  // ---------------------------------------------------------------------------
+  // Dispose
+  // ---------------------------------------------------------------------------
+
   /// Disposes of the current [web.HTMLVideoElement].
   void dispose() {
+    // Exit PiP if active.
+    if (_isPipActive) {
+      try {
+        web.document.exitPictureInPicture();
+      } catch (_) {
+        // Ignore errors during disposal.
+      }
+    }
+
+    // Clean up PiP listeners.
+    if (_onEnterPip != null) {
+      _videoElement.removeEventListener('enterpictureinpicture', _onEnterPip);
+      _onEnterPip = null;
+    }
+    if (_onLeavePip != null) {
+      _videoElement.removeEventListener('leavepictureinpicture', _onLeavePip);
+      _onLeavePip = null;
+    }
+
+    // Tear down MediaSession (includes enterpictureinpicture handler).
+    if (_mediaSessionEnabled) {
+      _teardownMediaSession();
+    }
+
     _videoElement.removeAttribute('src');
     if (_onContextMenu != null) {
       _videoElement.removeEventListener('contextmenu', _onContextMenu);
@@ -292,6 +625,10 @@ class VideoPlayer {
     }
     _videoElement.load();
   }
+
+  // ---------------------------------------------------------------------------
+  // Internal helpers
+  // ---------------------------------------------------------------------------
 
   // Handler to mark (and broadcast) when this player [_isInitialized].
   //

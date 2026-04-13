@@ -15,6 +15,10 @@
 @import Flutter;
 #endif
 
+#import "FVPPipController.h"
+
+@class FVPBackgroundAudioHandler;
+
 NS_ASSUME_NONNULL_BEGIN
 
 /// FVPVideoPlayer manages video playback using AVPlayer.
@@ -22,7 +26,7 @@ NS_ASSUME_NONNULL_BEGIN
 /// This class contains all functionalities needed to manage video playback in platform views and is
 /// typically used alongside FVPNativeVideoViewFactory. If you need to display a video using a
 /// texture, use FVPTextureBasedVideoPlayer instead.
-@interface FVPVideoPlayer : NSObject <FVPVideoPlayerInstanceApi>
+@interface FVPVideoPlayer : NSObject <FVPVideoPlayerInstanceApi, FVPPipControllerDelegate>
 /// The AVPlayer instance used for video playback.
 @property(nonatomic, readonly) AVPlayer *player;
 /// Indicates whether the video player has been disposed.
@@ -35,6 +39,12 @@ NS_ASSUME_NONNULL_BEGIN
 @property(nonatomic, nullable) NSObject<FVPVideoEventListener> *eventListener;
 /// A block that will be called when dispose is called.
 @property(nonatomic, nullable, copy) void (^onDisposed)(void);
+/// The PiP controller for Picture-in-Picture support.
+@property(nonatomic, strong, nullable) FVPPipController *pipController;
+/// The background audio handler for background playback support.
+@property(nonatomic, strong, nullable) FVPBackgroundAudioHandler *backgroundAudioHandler;
+/// The AVPlayerLayer used for rendering and PiP support. Created lazily on first access.
+@property(nonatomic, strong, readonly) AVPlayerLayer *playerLayer;
 
 /// Initializes a new instance of FVPVideoPlayer with the given AVPlayerItem, AV factory, and view
 /// provider.

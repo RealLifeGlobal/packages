@@ -279,6 +279,9 @@ class MiniController extends ValueNotifier<VideoPlayerValue> {
         case VideoEventType.isPlayingStateUpdate:
           value = value.copyWith(isPlaying: event.isPlaying);
         case VideoEventType.unknown:
+        case VideoEventType.pipStateChanged:
+        case VideoEventType.qualityChanged:
+        case VideoEventType.decoderChanged:
           break;
       }
     }

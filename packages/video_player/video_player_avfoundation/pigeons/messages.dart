@@ -56,6 +56,29 @@ class MediaSelectionAudioTrackData {
   String? commonMetadataTitle;
 }
 
+class PlatformMediaInfo {
+  PlatformMediaInfo({required this.title});
+  String title;
+  String? artist;
+  String? artworkUrl;
+  int? durationMs;
+}
+
+/// Represents a video quality variant (resolution/bitrate combination).
+class PlatformVideoQuality {
+  PlatformVideoQuality({
+    required this.width,
+    required this.height,
+    required this.bitrate,
+    required this.isSelected,
+  });
+  int width;
+  int height;
+  int bitrate;
+  String? codec;
+  bool isSelected;
+}
+
 @HostApi()
 abstract class AVFoundationVideoPlayerApi {
   @ObjCSelector('initialize')
@@ -71,6 +94,32 @@ abstract class AVFoundationVideoPlayerApi {
   void setMixWithOthers(bool mixWithOthers);
   @ObjCSelector('fileURLForAssetWithName:package:')
   String? getAssetUrl(String asset, String? package);
+  @ObjCSelector('isPipSupported')
+  bool isPipSupported();
+  @ObjCSelector('enterPipForPlayer:')
+  void enterPip(int playerId);
+  @ObjCSelector('exitPipForPlayer:')
+  void exitPip(int playerId);
+  @ObjCSelector('isPipActiveForPlayer:')
+  bool isPipActive(int playerId);
+  @ObjCSelector('enableBackgroundPlaybackForPlayer:mediaInfo:')
+  void enableBackgroundPlayback(int playerId, PlatformMediaInfo? mediaInfo);
+  @ObjCSelector('disableBackgroundPlaybackForPlayer:')
+  void disableBackgroundPlayback(int playerId);
+  @ObjCSelector('setAutoPipForPlayer:enabled:')
+  void setAutoPip(int playerId, bool enabled);
+
+  // Cache control methods (no-ops on iOS until future HLS cache phase)
+  @ObjCSelector('setCacheMaxSize:')
+  void setCacheMaxSize(int maxSizeBytes);
+  @ObjCSelector('clearCache')
+  void clearCache();
+  @ObjCSelector('getCacheSize')
+  int getCacheSize();
+  @ObjCSelector('isCacheEnabled')
+  bool isCacheEnabled();
+  @ObjCSelector('setCacheEnabled:')
+  void setCacheEnabled(bool enabled);
 }
 
 @HostApi()
@@ -93,4 +142,14 @@ abstract class VideoPlayerInstanceApi {
   List<MediaSelectionAudioTrackData> getAudioTracks();
   @ObjCSelector('selectAudioTrackAtIndex:')
   void selectAudioTrack(int trackIndex);
+
+  // ABR (Adaptive Bitrate) control methods
+  @ObjCSelector('getAvailableQualities')
+  List<PlatformVideoQuality> getAvailableQualities();
+  @ObjCSelector('getCurrentQuality')
+  PlatformVideoQuality? getCurrentQuality();
+  @ObjCSelector('setMaxBitrate:')
+  void setMaxBitrate(int maxBitrateBps);
+  @ObjCSelector('setMaxResolutionWidth:height:')
+  void setMaxResolution(int width, int height);
 }

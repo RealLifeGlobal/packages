@@ -130,6 +130,47 @@ class FakeController extends ValueNotifier<VideoPlayerValue>
     return true;
   }
 
+  @override
+  Future<bool> get isPipSupported async => false;
+
+  @override
+  Future<void> enterPip() async {}
+
+  @override
+  Future<void> exitPip() async {}
+
+  @override
+  Future<void> setAutoEnterPip(bool enabled) async {}
+
+  @override
+  Future<void> enableBackgroundPlayback({MediaInfo? mediaInfo}) async {}
+
+  @override
+  Future<void> disableBackgroundPlayback() async {}
+
+  @override
+  Future<List<VideoQuality>> getAvailableQualities() async =>
+      <VideoQuality>[];
+
+  @override
+  Future<VideoQuality?> getCurrentQuality() async => null;
+
+  @override
+  Future<void> setMaxBitrate(int maxBitrateBps) async {}
+
+  @override
+  Future<void> setMaxResolution(int width, int height) async {}
+
+  @override
+  Future<List<VideoDecoderInfo>> getAvailableDecoders() async =>
+      <VideoDecoderInfo>[];
+
+  @override
+  Future<String?> getCurrentDecoderName() async => null;
+
+  @override
+  Future<void> setVideoDecoder(String? decoderName) async {}
+
   String? selectedAudioTrackId;
 }
 
@@ -1858,9 +1899,16 @@ void main() {
           'volume: 0.5, '
           'playbackSpeed: 1.5, '
           'errorDescription: null, '
-          'isCompleted: false),',
-        );
-      });
+          'isCompleted: false, '
+          'isPipActive: false, '
+          'isPlayingInBackground: false, '
+          'isAutoEnterPipEnabled: false, '
+          'pipSize: null, '
+          'currentQuality: null, '
+          'decoderName: null, '
+          'isDecoderHardwareAccelerated: null)',
+      );
+    });
 
       group('copyWith()', () {
         test('exact copy', () {

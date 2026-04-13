@@ -8,6 +8,7 @@ import static org.junit.Assert.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
+import android.content.Context;
 import android.view.Surface;
 import androidx.media3.common.AudioAttributes;
 import androidx.media3.common.C;
@@ -42,6 +43,7 @@ public final class TextureVideoPlayerTest {
   private static final String FAKE_ASSET_URL = "https://flutter.dev/movie.mp4";
   private FakeVideoAsset fakeVideoAsset;
 
+  @Mock private Context mockContext;
   @Mock private VideoPlayerCallbacks mockEvents;
   @Mock private TextureRegistry.SurfaceProducer mockProducer;
   @Mock private ExoPlayer mockExoPlayer;
@@ -64,7 +66,8 @@ public final class TextureVideoPlayerTest {
 
   private TextureVideoPlayer createVideoPlayer(VideoPlayerOptions options) {
     return new TextureVideoPlayer(
-        mockEvents, mockProducer, fakeVideoAsset.getMediaItem(), options, () -> mockExoPlayer);
+        mockContext, fakeVideoAsset, mockEvents, mockProducer,
+        fakeVideoAsset.getMediaItem(), options, () -> mockExoPlayer);
   }
 
   @Test

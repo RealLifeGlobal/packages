@@ -12,7 +12,9 @@ import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import io.flutter.plugins.videoplayer.ExoPlayerEventListener;
 import io.flutter.plugins.videoplayer.VideoAsset;
 import io.flutter.plugins.videoplayer.VideoPlayer;
@@ -30,6 +32,11 @@ import io.flutter.view.TextureRegistry.SurfaceProducer;
 public final class TextureVideoPlayer extends VideoPlayer implements SurfaceProducer.Callback {
   // True when the ExoPlayer instance has a null surface.
   private boolean needsSurface = true;
+
+  // Stored for ExoPlayer rebuild (decoder switching).
+  @NonNull private final Context context;
+  @NonNull private final VideoAsset asset;
+
   /**
    * Creates a texture video player.
    *
@@ -50,31 +57,29 @@ public final class TextureVideoPlayer extends VideoPlayer implements SurfaceProd
       @NonNull VideoAsset asset,
       @NonNull VideoPlayerOptions options) {
     return new TextureVideoPlayer(
+        context,
+        asset,
         events,
         surfaceProducer,
         asset.getMediaItem(),
         options,
-        () -> {
-          androidx.media3.exoplayer.trackselection.DefaultTrackSelector trackSelector =
-              new androidx.media3.exoplayer.trackselection.DefaultTrackSelector(context);
-          ExoPlayer.Builder builder =
-              new ExoPlayer.Builder(context)
-                  .setTrackSelector(trackSelector)
-                  .setMediaSourceFactory(asset.getMediaSourceFactory(context));
-          return builder.build();
-        });
+        buildExoPlayerProvider(context, asset, options, null));
   }
 
   // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
   @UnstableApi
   @VisibleForTesting
   public TextureVideoPlayer(
+      @NonNull Context context,
+      @NonNull VideoAsset asset,
       @NonNull VideoPlayerCallbacks events,
       @NonNull SurfaceProducer surfaceProducer,
       @NonNull MediaItem mediaItem,
       @NonNull VideoPlayerOptions options,
       @NonNull ExoPlayerProvider exoPlayerProvider) {
     super(events, mediaItem, options, surfaceProducer, exoPlayerProvider);
+    this.context = context;
+    this.asset = asset;
 
     surfaceProducer.setCallback(this);
 
@@ -93,7 +98,54 @@ public final class TextureVideoPlayer extends VideoPlayer implements SurfaceProd
     }
     boolean surfaceProducerHandlesCropAndRotation = surfaceProducer.handlesCropAndRotation();
     return new TextureExoPlayerEventListener(
-        exoPlayer, videoPlayerEvents, surfaceProducerHandlesCropAndRotation);
+        exoPlayer, videoPlayerEvents, surfaceProducerHandlesCropAndRotation,
+        maxPlayerRecoveryAttempts);
+  }
+
+  @UnstableApi
+  @NonNull
+  @Override
+  protected ExoPlayerProvider createExoPlayerProvider(@Nullable String forcedDecoderName) {
+    return buildExoPlayerProvider(context, asset, options, forcedDecoderName);
+  }
+
+  @Override
+  protected void onPlayerRebuilt(@NonNull ExoPlayer newPlayer) {
+    // Re-attach surface after ExoPlayer rebuild.
+    assert surfaceProducer != null;
+    Surface surface = surfaceProducer.getSurface();
+    newPlayer.setVideoSurface(surface);
+    needsSurface = surface == null;
+  }
+
+  @UnstableApi
+  @NonNull
+  private static ExoPlayerProvider buildExoPlayerProvider(
+      @NonNull Context context,
+      @NonNull VideoAsset asset,
+      @NonNull VideoPlayerOptions options,
+      @Nullable String forcedDecoderName) {
+    return () -> {
+      androidx.media3.exoplayer.trackselection.DefaultTrackSelector trackSelector =
+          new androidx.media3.exoplayer.trackselection.DefaultTrackSelector(context);
+      androidx.media3.exoplayer.source.MediaSource.Factory mediaSourceFactory =
+          asset.getMediaSourceFactory(context);
+      if (mediaSourceFactory
+          instanceof androidx.media3.exoplayer.source.DefaultMediaSourceFactory) {
+        ((androidx.media3.exoplayer.source.DefaultMediaSourceFactory) mediaSourceFactory)
+            .setLoadErrorHandlingPolicy(
+                new DefaultLoadErrorHandlingPolicy(options.maxLoadRetries));
+      }
+      DefaultRenderersFactory renderersFactory =
+          new DefaultRenderersFactory(context)
+              .setEnableDecoderFallback(true)
+              .setMediaCodecSelector(createSelectorForDecoder(forcedDecoderName));
+      ExoPlayer.Builder builder =
+          new ExoPlayer.Builder(context, renderersFactory)
+              .setTrackSelector(trackSelector)
+              .setMediaSourceFactory(mediaSourceFactory);
+      return builder.build();
+    };
   }
 
   @RestrictTo(RestrictTo.Scope.LIBRARY)

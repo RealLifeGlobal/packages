@@ -68,4 +68,19 @@ final class VideoPlayerEventCallbacks implements VideoPlayerCallbacks {
   public void onAudioTrackChanged(@Nullable String selectedTrackId) {
     eventSink.success(new AudioTrackChangedEvent(selectedTrackId));
   }
+
+  @Override
+  public void onPipStateChanged(boolean isInPipMode, boolean wasDismissed, int widthDp, int heightDp) {
+    eventSink.success(new PipStateEvent(isInPipMode, wasDismissed, (long) widthDp, (long) heightDp));
+  }
+
+  @Override
+  public void onVideoQualityChanged(int width, int height, int bitrate, @Nullable String codec) {
+    eventSink.success(new VideoQualityChangedEvent((long) width, (long) height, (long) bitrate, codec));
+  }
+
+  @Override
+  public void onDecoderChanged(@NonNull String decoderName, boolean isHardwareAccelerated) {
+    eventSink.success(new DecoderChangedEvent(decoderName, isHardwareAccelerated));
+  }
 }

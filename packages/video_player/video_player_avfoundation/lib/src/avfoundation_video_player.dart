@@ -213,6 +213,121 @@ class AVFoundationVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
+  Future<bool> isPipSupported() async {
+    return _api.isPipSupported();
+  }
+
+  @override
+  Future<void> enterPip(int playerId) {
+    return _api.enterPip(playerId);
+  }
+
+  @override
+  Future<void> exitPip(int playerId) {
+    return _api.exitPip(playerId);
+  }
+
+  @override
+  Future<bool> isPipActive(int playerId) async {
+    return _api.isPipActive(playerId);
+  }
+
+  @override
+  Future<void> setAutoEnterPip(int playerId, bool enabled) {
+    return _api.setAutoPip(playerId, enabled);
+  }
+
+  @override
+  Future<void> enableBackgroundPlayback(int playerId, {MediaInfo? mediaInfo}) {
+    final PlatformMediaInfo? pigeonMediaInfo = mediaInfo != null
+        ? PlatformMediaInfo(
+            title: mediaInfo.title,
+            artist: mediaInfo.artist,
+            artworkUrl: mediaInfo.artworkUrl,
+            durationMs: mediaInfo.durationMs,
+          )
+        : null;
+    return _api.enableBackgroundPlayback(playerId, pigeonMediaInfo);
+  }
+
+  @override
+  Future<void> disableBackgroundPlayback(int playerId) {
+    return _api.disableBackgroundPlayback(playerId);
+  }
+
+  // Cache control methods (iOS no-ops until future HLS cache phase)
+
+  @override
+  Future<void> setCacheMaxSize(int maxSizeBytes) {
+    return _api.setCacheMaxSize(maxSizeBytes);
+  }
+
+  @override
+  Future<void> clearCache() {
+    return _api.clearCache();
+  }
+
+  @override
+  Future<int> getCacheSize() async {
+    return _api.getCacheSize();
+  }
+
+  @override
+  Future<bool> isCacheEnabled() async {
+    return _api.isCacheEnabled();
+  }
+
+  @override
+  Future<void> setCacheEnabled(bool enabled) {
+    return _api.setCacheEnabled(enabled);
+  }
+
+  // ABR control methods
+
+  @override
+  Future<List<VideoQuality>> getAvailableQualities(int playerId) async {
+    final List<PlatformVideoQuality> qualities =
+        await _playerWith(id: playerId).getAvailableQualities();
+    return qualities
+        .map(
+          (PlatformVideoQuality q) => VideoQuality(
+            width: q.width,
+            height: q.height,
+            bitrate: q.bitrate,
+            codec: q.codec,
+            isSelected: q.isSelected,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<VideoQuality?> getCurrentQuality(int playerId) async {
+    final PlatformVideoQuality? q =
+        await _playerWith(id: playerId).getCurrentQuality();
+    if (q == null) {
+      return null;
+    }
+    return VideoQuality(
+      width: q.width,
+      height: q.height,
+      bitrate: q.bitrate,
+      codec: q.codec,
+      isSelected: q.isSelected,
+    );
+  }
+
+  @override
+  Future<void> setMaxBitrate(int playerId, int maxBitrateBps) {
+    return _playerWith(id: playerId).setMaxBitrate(maxBitrateBps);
+  }
+
+  @override
+  Future<void> setMaxResolution(int playerId, int width, int height) {
+    return _playerWith(id: playerId).setMaxResolution(width, height);
+  }
+
+  @override
   Widget buildView(int playerId) {
     return buildViewWithOptions(VideoViewOptions(playerId: playerId));
   }
@@ -289,6 +404,18 @@ class _PlayerInstance {
   Future<void> selectAudioTrack(int trackIndex) =>
       _api.selectAudioTrack(trackIndex);
 
+  Future<List<PlatformVideoQuality>> getAvailableQualities() =>
+      _api.getAvailableQualities();
+
+  Future<PlatformVideoQuality?> getCurrentQuality() =>
+      _api.getCurrentQuality();
+
+  Future<void> setMaxBitrate(int maxBitrateBps) =>
+      _api.setMaxBitrate(maxBitrateBps);
+
+  Future<void> setMaxResolution(int width, int height) =>
+      _api.setMaxResolution(width, height);
+
   Stream<VideoEvent> get videoEvents {
     _eventSubscription ??= _eventChannel.receiveBroadcastStream().listen(
       _onStreamEvent,
@@ -330,6 +457,19 @@ class _PlayerInstance {
       'isPlayingStateUpdate' => VideoEvent(
         eventType: VideoEventType.isPlayingStateUpdate,
         isPlaying: map['isPlaying'] as bool,
+      ),
+      'pipStateChanged' => VideoEvent(
+        eventType: VideoEventType.pipStateChanged,
+        isPipActive: map['isPipActive'] as bool,
+      ),
+      'qualityChanged' => VideoEvent(
+        eventType: VideoEventType.qualityChanged,
+        quality: VideoQuality(
+          width: map['width'] as int,
+          height: map['height'] as int,
+          bitrate: map['bitrate'] as int,
+          isSelected: true,
+        ),
       ),
       _ => VideoEvent(eventType: VideoEventType.unknown),
     });

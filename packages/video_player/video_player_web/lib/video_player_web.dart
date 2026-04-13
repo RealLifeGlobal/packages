@@ -166,6 +166,61 @@ class VideoPlayerPlugin extends VideoPlayerPlatform {
     return HtmlElementView(viewType: 'videoPlayer-$playerId');
   }
 
+  // ---------------------------------------------------------------------------
+  // Picture-in-Picture
+  // ---------------------------------------------------------------------------
+
+  @override
+  Future<bool> isPipSupported() async {
+    // Check via any existing player, or fall back to document-level check.
+    final VideoPlayer? player = _videoPlayers.values.firstOrNull;
+    if (player != null) {
+      return player.isPipSupported;
+    }
+    try {
+      return web.document.pictureInPictureEnabled;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  @override
+  Future<void> enterPip(int playerId) async {
+    return _player(playerId).enterPip();
+  }
+
+  @override
+  Future<void> exitPip(int playerId) async {
+    return _player(playerId).exitPip();
+  }
+
+  @override
+  Future<bool> isPipActive(int playerId) async {
+    return _player(playerId).isPipActive;
+  }
+
+  @override
+  Future<void> setAutoEnterPip(int playerId, bool enabled) async {
+    _player(playerId).setAutoEnterPip(enabled);
+  }
+
+  // ---------------------------------------------------------------------------
+  // MediaSession / Background playback
+  // ---------------------------------------------------------------------------
+
+  @override
+  Future<void> enableBackgroundPlayback(
+    int playerId, {
+    MediaInfo? mediaInfo,
+  }) async {
+    _player(playerId).enableMediaSession(mediaInfo);
+  }
+
+  @override
+  Future<void> disableBackgroundPlayback(int playerId) async {
+    _player(playerId).disableMediaSession();
+  }
+
   /// Sets the audio mode to mix with other sources (ignored).
   @override
   Future<void> setMixWithOthers(bool mixWithOthers) => Future<void>.value();

@@ -15,6 +15,7 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.datasource.DataSource;
 import androidx.media3.datasource.DefaultDataSource;
 import androidx.media3.datasource.DefaultHttpDataSource;
+import androidx.media3.datasource.cache.CacheDataSource;
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory;
 import androidx.media3.exoplayer.source.MediaSource;
 import java.util.Map;
@@ -77,6 +78,15 @@ final class HttpVideoAsset extends VideoAsset {
       Context context, DefaultHttpDataSource.Factory initialFactory) {
     unstableUpdateDataSourceFactory(initialFactory, httpHeaders, userAgent);
     DataSource.Factory dataSourceFactory = new DefaultDataSource.Factory(context, initialFactory);
+
+    // Wrap with CacheDataSource if caching is enabled.
+    if (VideoCacheManager.isEnabled()) {
+      dataSourceFactory =
+          new CacheDataSource.Factory()
+              .setCache(VideoCacheManager.getCache(context))
+              .setUpstreamDataSourceFactory(dataSourceFactory);
+    }
+
     return new DefaultMediaSourceFactory(context).setDataSourceFactory(dataSourceFactory);
   }
 

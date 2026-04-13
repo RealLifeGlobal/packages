@@ -9,10 +9,12 @@
 
 #import "./include/video_player_avfoundation/FVPAVFactory.h"
 #import "./include/video_player_avfoundation/FVPAssetProvider.h"
+#import "./include/video_player_avfoundation/FVPBackgroundAudioHandler.h"
 #import "./include/video_player_avfoundation/FVPDisplayLink.h"
 #import "./include/video_player_avfoundation/FVPEventBridge.h"
 #import "./include/video_player_avfoundation/FVPFrameUpdater.h"
 #import "./include/video_player_avfoundation/FVPNativeVideoViewFactory.h"
+#import "./include/video_player_avfoundation/FVPPipController.h"
 #import "./include/video_player_avfoundation/FVPTextureBasedVideoPlayer.h"
 #import "./include/video_player_avfoundation/FVPVideoPlayer.h"
 // Relative path is needed for messages.g.h. See
@@ -159,6 +161,17 @@
                                                    channelSuffix]];
   player.eventListener = eventBridge;
 
+  // Eagerly create PiP controller so it's ready when enterPip is called.
+  // AVPictureInPictureController needs time for isPictureInPicturePossible to
+  // become YES. Creating it lazily in enterPip causes the first tap to fail
+  // because startPictureInPicture must be called from a user action context.
+#if TARGET_OS_IOS
+  if ([FVPPipController isPipSupported] && !player.pipController) {
+    player.pipController = [[FVPPipController alloc] initWithPlayerLayer:player.playerLayer];
+    player.pipController.delegate = player;
+  }
+#endif
+
   return playerIdentifier;
 }
 
@@ -301,6 +314,109 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
     return nil;
   }
   return [NSURL fileURLWithPath:path].absoluteString;
+}
+
+- (nullable FVPVideoPlayer *)playerForId:(NSInteger)playerId
+                                    error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = self.playersByIdentifier[@(playerId)];
+  if (!player) {
+    *error = [FlutterError errorWithCode:@"video_player" message:@"Player not found" details:nil];
+  }
+  return player;
+}
+
+- (nullable NSNumber *)isPipSupported:(FlutterError *_Nullable *_Nonnull)error {
+  return @([FVPPipController isPipSupported]);
+}
+
+- (void)enterPipForPlayer:(NSInteger)playerId error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) return;
+  if (!player.pipController) {
+    player.pipController = [[FVPPipController alloc] initWithPlayerLayer:player.playerLayer];
+    player.pipController.delegate = player;
+  }
+  [player.pipController startPip];
+}
+
+- (void)exitPipForPlayer:(NSInteger)playerId error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) return;
+  [player.pipController stopPip];
+}
+
+- (nullable NSNumber *)isPipActiveForPlayer:(NSInteger)playerId
+                                      error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) return nil;
+  return @(player.pipController.isPipActive);
+}
+
+- (void)enableBackgroundPlaybackForPlayer:(NSInteger)playerId
+                                mediaInfo:(nullable FVPPlatformMediaInfo *)mediaInfo
+                                    error:(FlutterError *_Nullable *_Nonnull)error {
+  NSLog(@"video_player: [BG-PLUGIN] enableBackgroundPlayback called for player %ld", (long)playerId);
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) {
+    NSLog(@"video_player: [BG-PLUGIN] ERROR: player %ld not found!", (long)playerId);
+    return;
+  }
+  NSLog(@"video_player: [BG-PLUGIN] player found, rate=%f, currentItem=%@",
+        player.player.rate, player.player.currentItem);
+  if (!player.backgroundAudioHandler) {
+    player.backgroundAudioHandler =
+        [[FVPBackgroundAudioHandler alloc] initWithPlayer:player.player];
+    NSLog(@"video_player: [BG-PLUGIN] Created new FVPBackgroundAudioHandler");
+  }
+  [player.backgroundAudioHandler enableWithTitle:mediaInfo.title
+                                          artist:mediaInfo.artist
+                                      artworkUrl:mediaInfo.artworkUrl
+                                      durationMs:mediaInfo.durationMs];
+  NSLog(@"video_player: [BG-PLUGIN] enableWithTitle completed, handler.isEnabled=%d",
+        player.backgroundAudioHandler.isEnabled);
+}
+
+- (void)disableBackgroundPlaybackForPlayer:(NSInteger)playerId
+                                     error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) return;
+  [player.backgroundAudioHandler disable];
+}
+
+- (void)setAutoPipForPlayer:(NSInteger)playerId
+                    enabled:(BOOL)enabled
+                      error:(FlutterError *_Nullable *_Nonnull)error {
+  FVPVideoPlayer *player = [self playerForId:playerId error:error];
+  if (!player) return;
+  if (!player.pipController) {
+    player.pipController = [[FVPPipController alloc] initWithPlayerLayer:player.playerLayer];
+    player.pipController.delegate = player;
+  }
+  [player.pipController setCanStartAutomatically:enabled];
+}
+
+// Cache control methods — no-ops on iOS until the HLS reverse-proxy cache phase.
+
+- (void)setCacheMaxSize:(NSInteger)maxSizeBytes
+                  error:(FlutterError *_Nullable *_Nonnull)error {
+  // No-op on iOS. Store value for future use.
+}
+
+- (void)clearCache:(FlutterError *_Nullable *_Nonnull)error {
+  // No-op on iOS.
+}
+
+- (nullable NSNumber *)getCacheSize:(FlutterError *_Nullable *_Nonnull)error {
+  return @(0);
+}
+
+- (nullable NSNumber *)isCacheEnabled:(FlutterError *_Nullable *_Nonnull)error {
+  return @(NO);
+}
+
+- (void)setCacheEnabled:(BOOL)enabled
+                  error:(FlutterError *_Nullable *_Nonnull)error {
+  // No-op on iOS.
 }
 
 /// Returns the AVPlayerItem corresponding to the given player creation options.

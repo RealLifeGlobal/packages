@@ -153,6 +153,134 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
   bool isAudioTrackSupportAvailable() {
     return false;
   }
+
+  /// Returns whether Picture-in-Picture mode is supported on this device.
+  Future<bool> isPipSupported() {
+    throw UnimplementedError('isPipSupported() has not been implemented.');
+  }
+
+  /// Enters Picture-in-Picture mode for the given player.
+  Future<void> enterPip(int playerId) {
+    throw UnimplementedError('enterPip() has not been implemented.');
+  }
+
+  /// Exits Picture-in-Picture mode for the given player.
+  Future<void> exitPip(int playerId) {
+    throw UnimplementedError('exitPip() has not been implemented.');
+  }
+
+  /// Returns whether Picture-in-Picture mode is currently active.
+  Future<bool> isPipActive(int playerId) {
+    throw UnimplementedError('isPipActive() has not been implemented.');
+  }
+
+  /// Sets whether PiP should be entered automatically when the app
+  /// goes to background (Android 12+ only).
+  Future<void> setAutoEnterPip(int playerId, bool enabled) {
+    throw UnimplementedError('setAutoEnterPip() has not been implemented.');
+  }
+
+  /// Enables background playback for the given player.
+  ///
+  /// When enabled, audio continues playing when the app is backgrounded.
+  /// On Android, this starts a foreground service with a media notification.
+  /// On iOS, this configures the audio session and sets up lock screen controls.
+  Future<void> enableBackgroundPlayback(int playerId, {MediaInfo? mediaInfo}) {
+    throw UnimplementedError(
+      'enableBackgroundPlayback() has not been implemented.',
+    );
+  }
+
+  /// Disables background playback for the given player.
+  Future<void> disableBackgroundPlayback(int playerId) {
+    throw UnimplementedError(
+      'disableBackgroundPlayback() has not been implemented.',
+    );
+  }
+
+  // Cache control methods
+
+  /// Sets the maximum cache size in bytes.
+  Future<void> setCacheMaxSize(int maxSizeBytes) {
+    throw UnimplementedError(
+      'setCacheMaxSize() has not been implemented.',
+    );
+  }
+
+  /// Clears all cached video data.
+  Future<void> clearCache() {
+    throw UnimplementedError('clearCache() has not been implemented.');
+  }
+
+  /// Returns the current cache size in bytes.
+  Future<int> getCacheSize() {
+    throw UnimplementedError('getCacheSize() has not been implemented.');
+  }
+
+  /// Returns whether caching is enabled.
+  Future<bool> isCacheEnabled() {
+    throw UnimplementedError('isCacheEnabled() has not been implemented.');
+  }
+
+  /// Enables or disables caching.
+  Future<void> setCacheEnabled(bool enabled) {
+    throw UnimplementedError('setCacheEnabled() has not been implemented.');
+  }
+
+  // Adaptive Bitrate control methods
+
+  /// Returns the available video quality variants for the given player.
+  Future<List<VideoQuality>> getAvailableQualities(int playerId) {
+    throw UnimplementedError(
+      'getAvailableQualities() has not been implemented.',
+    );
+  }
+
+  /// Returns the current video quality for the given player.
+  Future<VideoQuality?> getCurrentQuality(int playerId) {
+    throw UnimplementedError(
+      'getCurrentQuality() has not been implemented.',
+    );
+  }
+
+  /// Sets the maximum video bitrate in bits per second.
+  Future<void> setMaxBitrate(int playerId, int maxBitrateBps) {
+    throw UnimplementedError('setMaxBitrate() has not been implemented.');
+  }
+
+  /// Sets the maximum video resolution.
+  Future<void> setMaxResolution(int playerId, int width, int height) {
+    throw UnimplementedError('setMaxResolution() has not been implemented.');
+  }
+
+  // Decoder selection methods
+
+  /// Returns the available video decoders for the given player.
+  ///
+  /// The list is filtered by the current video's MIME type. Each entry
+  /// indicates whether the decoder is hardware-accelerated or software-only.
+  Future<List<VideoDecoderInfo>> getAvailableDecoders(int playerId) {
+    throw UnimplementedError(
+      'getAvailableDecoders() has not been implemented.',
+    );
+  }
+
+  /// Returns the name of the currently active video decoder, or null if
+  /// no decoder has been initialized yet.
+  Future<String?> getCurrentDecoderName(int playerId) {
+    throw UnimplementedError(
+      'getCurrentDecoderName() has not been implemented.',
+    );
+  }
+
+  /// Forces the player to use a specific video decoder by name.
+  ///
+  /// Pass null to revert to automatic decoder selection.
+  /// This rebuilds the underlying player instance, causing a brief
+  /// playback interruption (~200-500ms).
+  Future<void> setVideoDecoder(int playerId, String? decoderName) {
+    throw UnimplementedError('setVideoDecoder() has not been implemented.');
+  }
 }
 
 class _PlaceholderImplementation extends VideoPlayerPlatform {}
@@ -273,6 +401,12 @@ class VideoEvent {
     this.rotationCorrection,
     this.buffered,
     this.isPlaying,
+    this.isPipActive,
+    this.wasDismissed,
+    this.pipWindowSize,
+    this.quality,
+    this.decoderName,
+    this.isDecoderHardwareAccelerated,
   });
 
   /// The type of the event.
@@ -303,6 +437,40 @@ class VideoEvent {
   /// Only used if [eventType] is [VideoEventType.isPlayingStateUpdate].
   final bool? isPlaying;
 
+  /// Whether Picture-in-Picture mode is currently active.
+  ///
+  /// Only used if [eventType] is [VideoEventType.pipStateChanged].
+  final bool? isPipActive;
+
+  /// Whether PiP was dismissed by the user (e.g. the X button) as opposed to
+  /// expanded back to full screen.
+  ///
+  /// Only used if [eventType] is [VideoEventType.pipStateChanged] and
+  /// [isPipActive] is false.
+  final bool? wasDismissed;
+
+  /// The window size (in dp) at the time of a PiP state change.
+  ///
+  /// Only used if [eventType] is [VideoEventType.pipStateChanged].
+  /// When [isPipActive] is true, this is the PiP window size.
+  /// When [isPipActive] is false, this is the restored window size.
+  final Size? pipWindowSize;
+
+  /// The current video quality after an ABR switch.
+  ///
+  /// Only used if [eventType] is [VideoEventType.qualityChanged].
+  final VideoQuality? quality;
+
+  /// The name of the active video decoder.
+  ///
+  /// Only used if [eventType] is [VideoEventType.decoderChanged].
+  final String? decoderName;
+
+  /// Whether the active decoder is hardware-accelerated.
+  ///
+  /// Only used if [eventType] is [VideoEventType.decoderChanged].
+  final bool? isDecoderHardwareAccelerated;
+
   @override
   bool operator ==(Object other) {
     return identical(this, other) ||
@@ -313,7 +481,13 @@ class VideoEvent {
             size == other.size &&
             rotationCorrection == other.rotationCorrection &&
             listEquals(buffered, other.buffered) &&
-            isPlaying == other.isPlaying;
+            isPlaying == other.isPlaying &&
+            isPipActive == other.isPipActive &&
+            wasDismissed == other.wasDismissed &&
+            pipWindowSize == other.pipWindowSize &&
+            quality == other.quality &&
+            decoderName == other.decoderName &&
+            isDecoderHardwareAccelerated == other.isDecoderHardwareAccelerated;
   }
 
   @override
@@ -324,6 +498,12 @@ class VideoEvent {
     rotationCorrection,
     buffered,
     isPlaying,
+    isPipActive,
+    wasDismissed,
+    pipWindowSize,
+    quality,
+    decoderName,
+    isDecoderHardwareAccelerated,
   );
 }
 
@@ -354,6 +534,15 @@ enum VideoEventType {
   /// This event is fired when the video starts or pauses due to user actions or
   /// phone calls, or other app media such as music players.
   isPlayingStateUpdate,
+
+  /// The PiP state has changed.
+  pipStateChanged,
+
+  /// The video quality has changed (ABR switch).
+  qualityChanged,
+
+  /// The video decoder has changed.
+  decoderChanged,
 
   /// An unknown event has been received.
   unknown,
@@ -436,6 +625,7 @@ class VideoPlayerOptions {
     this.mixWithOthers = false,
     this.allowBackgroundPlayback = false,
     this.webOptions,
+    this.androidOptions,
   });
 
   /// Set this to true to keep playing video in background, when app goes in background.
@@ -451,6 +641,31 @@ class VideoPlayerOptions {
 
   /// Additional web controls
   final VideoPlayerWebOptions? webOptions;
+
+  /// Additional Android controls
+  final AndroidVideoPlayerOptions? androidOptions;
+}
+
+/// Android-specific video player options for configuring ExoPlayer behavior.
+@immutable
+class AndroidVideoPlayerOptions {
+  /// Creates Android-specific video player options.
+  const AndroidVideoPlayerOptions({
+    this.maxLoadRetries = 5,
+    this.maxPlayerRecoveryAttempts = 3,
+  });
+
+  /// Max retries per segment/load error before escalating
+  /// (ExoPlayer LoadErrorHandlingPolicy).
+  ///
+  /// Default 5 matches ExoPlayer's DefaultLoadErrorHandlingPolicy default.
+  final int maxLoadRetries;
+
+  /// Max player-level recovery attempts for fatal network errors
+  /// (e.g. connection lost).
+  ///
+  /// After exhausting these, the error is surfaced to the app.
+  final int maxPlayerRecoveryAttempts;
 }
 
 /// [VideoPlayerWebOptions] can be optionally used to set additional web settings
@@ -553,6 +768,7 @@ class VideoCreationOptions {
   const VideoCreationOptions({
     required this.dataSource,
     required this.viewType,
+    this.androidOptions,
   });
 
   /// The data source used to create the player.
@@ -560,6 +776,9 @@ class VideoCreationOptions {
 
   /// The type of view to be used for displaying the video player
   final VideoViewType viewType;
+
+  /// Android-specific options for configuring ExoPlayer behavior.
+  final AndroidVideoPlayerOptions? androidOptions;
 }
 
 /// Represents an audio track in a video with its metadata.
@@ -651,4 +870,137 @@ class VideoAudioTrack {
       'sampleRate: $sampleRate, '
       'channelCount: $channelCount, '
       'codec: $codec)';
+}
+
+/// Represents a video quality variant (resolution/bitrate combination)
+/// from an adaptive bitrate stream.
+@immutable
+class VideoQuality {
+  /// Constructs a [VideoQuality].
+  const VideoQuality({
+    required this.width,
+    required this.height,
+    required this.bitrate,
+    required this.isSelected,
+    this.codec,
+  });
+
+  /// Width in pixels.
+  final int width;
+
+  /// Height in pixels.
+  final int height;
+
+  /// Bitrate in bits per second.
+  final int bitrate;
+
+  /// Video codec (e.g., 'avc1.64001f', 'hev1.1.6.L93.B0').
+  final String? codec;
+
+  /// Whether this quality variant is currently selected.
+  final bool isSelected;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VideoQuality &&
+          runtimeType == other.runtimeType &&
+          width == other.width &&
+          height == other.height &&
+          bitrate == other.bitrate &&
+          codec == other.codec &&
+          isSelected == other.isSelected;
+
+  @override
+  int get hashCode => Object.hash(width, height, bitrate, codec, isSelected);
+
+  @override
+  String toString() =>
+      'VideoQuality(${width}x$height @ ${bitrate}bps, codec: $codec, selected: $isSelected)';
+}
+
+/// Describes a video decoder available on the device.
+@immutable
+class VideoDecoderInfo {
+  /// Constructs a [VideoDecoderInfo].
+  const VideoDecoderInfo({
+    required this.name,
+    required this.mimeType,
+    required this.isHardwareAccelerated,
+    required this.isSoftwareOnly,
+    required this.isSelected,
+  });
+
+  /// The codec name (e.g. 'OMX.qcom.video.decoder.avc',
+  /// 'c2.android.avc.decoder').
+  final String name;
+
+  /// The MIME type this decoder handles (e.g. 'video/avc').
+  final String mimeType;
+
+  /// Whether this decoder is hardware-accelerated.
+  final bool isHardwareAccelerated;
+
+  /// Whether this decoder is software-only.
+  final bool isSoftwareOnly;
+
+  /// Whether this decoder is currently active.
+  final bool isSelected;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is VideoDecoderInfo &&
+          runtimeType == other.runtimeType &&
+          name == other.name &&
+          mimeType == other.mimeType &&
+          isHardwareAccelerated == other.isHardwareAccelerated &&
+          isSoftwareOnly == other.isSoftwareOnly &&
+          isSelected == other.isSelected;
+
+  @override
+  int get hashCode =>
+      Object.hash(name, mimeType, isHardwareAccelerated, isSoftwareOnly, isSelected);
+
+  @override
+  String toString() =>
+      'VideoDecoderInfo($name, $mimeType, hw: $isHardwareAccelerated, sw: $isSoftwareOnly, selected: $isSelected)';
+}
+
+/// Media information for lock screen / notification display during
+/// background playback.
+@immutable
+class MediaInfo {
+  /// Constructs a [MediaInfo].
+  const MediaInfo({
+    required this.title,
+    this.artist,
+    this.artworkUrl,
+    this.durationMs,
+  });
+
+  /// The title of the media.
+  final String title;
+
+  /// The artist of the media.
+  final String? artist;
+
+  /// URL to the artwork image.
+  final String? artworkUrl;
+
+  /// Duration of the media in milliseconds.
+  final int? durationMs;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is MediaInfo &&
+          runtimeType == other.runtimeType &&
+          title == other.title &&
+          artist == other.artist &&
+          artworkUrl == other.artworkUrl &&
+          durationMs == other.durationMs;
+
+  @override
+  int get hashCode => Object.hash(title, artist, artworkUrl, durationMs);
 }
