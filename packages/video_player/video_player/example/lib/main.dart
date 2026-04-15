@@ -22,7 +22,7 @@ class _App extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return DefaultTabController(
-      length: 5,
+      length: 6,
       child: Scaffold(
         key: const ValueKey<String>('home_page'),
         appBar: AppBar(
@@ -76,6 +76,7 @@ class _App extends StatelessWidget {
               Tab(icon: Icon(Icons.list), text: 'List example'),
               Tab(icon: Icon(Icons.hd), text: 'HLS / ABR'),
               Tab(icon: Icon(Icons.memory), text: 'Decoders'),
+              Tab(icon: Icon(Icons.headphones), text: 'Audio'),
             ],
           ),
         ),
@@ -100,6 +101,10 @@ class _App extends StatelessWidget {
             _ViewTypeTabBar(
               builder: (VideoViewType viewType) =>
                   DecoderDemo(viewType),
+            ),
+            _ViewTypeTabBar(
+              builder: (VideoViewType viewType) =>
+                  _AudioOnlyRemote(viewType),
             ),
           ],
         ),
@@ -1151,6 +1156,122 @@ class _QualityButton extends StatelessWidget {
         children: <Widget>[
           Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
           Text(detail, style: const TextStyle(fontSize: 10)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Plays an audio-only remote .m4a through the video_player controller.
+///
+/// This exists specifically to reproduce a crash in the platform-view path:
+/// on Android, `PlatformViewExoPlayerEventListener.sendInitialized` used to
+/// NPE because `exoPlayer.getVideoFormat()` returns null for audio-only
+/// sources. Switch to the "Platform view" sub-tab to verify the fix.
+class _AudioOnlyRemote extends StatefulWidget {
+  const _AudioOnlyRemote(this.viewType);
+
+  final VideoViewType viewType;
+
+  @override
+  State<_AudioOnlyRemote> createState() => _AudioOnlyRemoteState();
+}
+
+class _AudioOnlyRemoteState extends State<_AudioOnlyRemote> {
+  late VideoPlayerController _controller;
+  Object? _initError;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = VideoPlayerController.networkUrl(
+      Uri.parse(
+        'https://storage.reallifeglobal.com/podcasts/17084864-4093-41f0-b354-8620d841cb7e/LEwTV_-_Rihanna_APP.m4a',
+      ),
+      viewType: widget.viewType,
+    );
+    _controller.addListener(() {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    _controller.initialize().then((_) {
+      if (mounted) {
+        setState(() {});
+      }
+    }).catchError((Object err) {
+      if (mounted) {
+        setState(() {
+          _initError = err;
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String _fmt(Duration d) {
+    final String mm = d.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final String ss = d.inSeconds.remainder(60).toString().padLeft(2, '0');
+    return '$mm:$ss';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final VideoPlayerValue value = _controller.value;
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: <Widget>[
+          const Text(
+            'Audio-only remote .m4a (podcast)\n'
+            'Use this tab with "Platform view" to repro the '
+            'PlatformViewExoPlayerEventListener NPE on audio-only sources.',
+            style: TextStyle(fontSize: 12),
+          ),
+          const SizedBox(height: 16),
+          if (_initError != null)
+            Text(
+              'Init error: $_initError',
+              style: const TextStyle(color: Colors.red),
+            )
+          else if (!value.isInitialized)
+            const Row(
+              children: <Widget>[
+                SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+                SizedBox(width: 12),
+                Text('Initializing…'),
+              ],
+            )
+          else ...<Widget>[
+            Text('Duration: ${_fmt(value.duration)}'),
+            Text('Position: ${_fmt(value.position)}'),
+            Text('Size: ${value.size.width.toInt()}x${value.size.height.toInt()}'
+                ' (audio-only = 0x0)'),
+            const SizedBox(height: 12),
+            VideoProgressIndicator(_controller, allowScrubbing: true),
+            const SizedBox(height: 12),
+            Row(
+              children: <Widget>[
+                IconButton(
+                  icon: Icon(value.isPlaying ? Icons.pause : Icons.play_arrow),
+                  onPressed: () {
+                    value.isPlaying ? _controller.pause() : _controller.play();
+                  },
+                ),
+                Text(value.isPlaying ? 'Playing' : 'Paused'),
+              ],
+            ),
+          ],
         ],
       ),
     );
