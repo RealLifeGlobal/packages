@@ -13,6 +13,7 @@ import android.util.LongSparseArray;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.annotation.OptIn;
+import androidx.core.content.ContextCompat;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.session.MediaSessionService;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -169,11 +170,12 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
         serviceBound = false;
       }
     };
-    // The service must be started (not just bound) to support foreground mode.
-    // A bound-only service cannot call startForeground(), so Media3 can't post
-    // the media notification. startService() starts it; Media3 then internally
-    // calls startForeground() when playback begins.
-    context.startService(intent);
+    // Start the service as a foreground service. The 5-second contract is
+    // satisfied by PlaybackService.onStartCommand, which immediately posts a
+    // placeholder foreground notification. Media3's MediaNotificationManager
+    // subsequently replaces it with the full media-style notification once a
+    // session with a playing player is added.
+    ContextCompat.startForegroundService(context, intent);
     context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
     serviceBound = true;
   }

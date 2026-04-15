@@ -4,12 +4,19 @@
 
 package io.flutter.plugins.videoplayer.service;
 
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.net.Uri;
+import android.os.Build;
 import android.os.IBinder;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.core.app.NotificationCompat;
+import androidx.core.app.ServiceCompat;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
 import androidx.media3.exoplayer.ExoPlayer;
@@ -18,15 +25,69 @@ import androidx.media3.session.MediaSessionService;
 
 public class PlaybackService extends MediaSessionService {
     private static final String TAG = "PlaybackService";
+    private static final String PLACEHOLDER_CHANNEL_ID = "video_player_playback_placeholder";
+    private static final int PLACEHOLDER_NOTIFICATION_ID = 0x7650414C; // 'vPAL'
     @Nullable private static PlaybackService instance;
     private MediaSession mediaSession = null;
     private ExoPlayer player = null;
+    private boolean placeholderForegroundActive = false;
 
     @Override
     public void onCreate() {
         super.onCreate();
         instance = this;
+        createPlaceholderChannel();
         Log.d(TAG, "PlaybackService created");
+    }
+
+    @Override
+    public int onStartCommand(@Nullable Intent intent, int flags, int startId) {
+        // Satisfy the startForegroundService() -> startForeground() 5-second
+        // contract immediately. Media3's MediaNotificationManager posts the
+        // real media-style notification once a session with a playing player
+        // is added, replacing (or superseding) this placeholder. Without this,
+        // if setPlayer()/addSession() is delayed or disableBackgroundPlayback()
+        // races the start, the kernel kills the app with RemoteServiceException.
+        if (!placeholderForegroundActive) {
+            Notification placeholder = buildPlaceholderNotification();
+            int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                    ? ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
+                    : 0;
+            ServiceCompat.startForeground(
+                    this, PLACEHOLDER_NOTIFICATION_ID, placeholder, type);
+            placeholderForegroundActive = true;
+        }
+        return super.onStartCommand(intent, flags, startId);
+    }
+
+    private void createPlaceholderChannel() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) {
+            return;
+        }
+        NotificationManager manager = getSystemService(NotificationManager.class);
+        if (manager == null
+                || manager.getNotificationChannel(PLACEHOLDER_CHANNEL_ID) != null) {
+            return;
+        }
+        NotificationChannel channel = new NotificationChannel(
+                PLACEHOLDER_CHANNEL_ID,
+                "Playback",
+                NotificationManager.IMPORTANCE_LOW);
+        channel.setShowBadge(false);
+        manager.createNotificationChannel(channel);
+    }
+
+    private Notification buildPlaceholderNotification() {
+        NotificationCompat.Builder builder =
+                new NotificationCompat.Builder(this, PLACEHOLDER_CHANNEL_ID)
+                        .setSmallIcon(android.R.drawable.ic_media_play)
+                        .setContentTitle(getApplicationInfo()
+                                .loadLabel(getPackageManager()).toString())
+                        .setOngoing(true)
+                        .setPriority(NotificationCompat.PRIORITY_LOW)
+                        .setCategory(NotificationCompat.CATEGORY_TRANSPORT)
+                        .setShowWhen(false);
+        return builder.build();
     }
 
     @Nullable
@@ -102,6 +163,10 @@ public class PlaybackService extends MediaSessionService {
             mediaSession = null;
         }
         player = null;
+        if (placeholderForegroundActive) {
+            ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
+            placeholderForegroundActive = false;
+        }
     }
 
     @Override
