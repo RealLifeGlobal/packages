@@ -11,7 +11,6 @@ import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
 import io.flutter.plugins.videoplayer.ExoPlayerEventListener;
 import io.flutter.plugins.videoplayer.VideoPlayerCallbacks;
-import java.util.Objects;
 
 public final class PlatformViewExoPlayerEventListener extends ExoPlayerEventListener {
   public PlatformViewExoPlayerEventListener(
@@ -25,10 +24,20 @@ public final class PlatformViewExoPlayerEventListener extends ExoPlayerEventList
   @Override
   protected void sendInitialized() {
     // We can't rely on VideoSize here, because at this point it is not available - the platform
-    // view was not created yet. We use the video format instead.
+    // view was not created yet. We use the video format instead. Audio-only sources have no
+    // video format, so we report zero dimensions and no rotation in that case.
     Format videoFormat = exoPlayer.getVideoFormat();
-    RotationDegrees rotationCorrection =
-        RotationDegrees.fromDegrees(Objects.requireNonNull(videoFormat).rotationDegrees);
+    if (videoFormat == null) {
+      events.onInitialized(0, 0, exoPlayer.getDuration(), 0);
+      return;
+    }
+
+    RotationDegrees rotationCorrection;
+    try {
+      rotationCorrection = RotationDegrees.fromDegrees(videoFormat.rotationDegrees);
+    } catch (IllegalArgumentException e) {
+      rotationCorrection = RotationDegrees.ROTATE_0;
+    }
     int width = videoFormat.width;
     int height = videoFormat.height;
 
