@@ -41,6 +41,18 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @Nullable protected final SurfaceProducer surfaceProducer;
   @Nullable private DisposeHandler disposeHandler;
   @NonNull protected ExoPlayer exoPlayer;
+
+  // Set to true once dispose() has been called. Public API methods that touch
+  // exoPlayer early-return when released, because a Flutter-side platform message
+  // (pause, seekTo, etc.) can arrive on the main thread after the Activity — and
+  // therefore the ExoPlayer's playback looper — has been torn down. Without this
+  // guard, ExoPlayerImpl posts to a dead handler and logs an IllegalStateException.
+  private volatile boolean released;
+
+  protected boolean isReleased() {
+    return released;
+  }
+
   // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
   @UnstableApi @Nullable protected DefaultTrackSelector trackSelector;
 
@@ -123,27 +135,32 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
 
   @Override
   public void play() {
+    if (released) return;
     exoPlayer.play();
   }
 
   @Override
   public void pause() {
+    if (released) return;
     exoPlayer.pause();
   }
 
   @Override
   public void setLooping(boolean looping) {
+    if (released) return;
     exoPlayer.setRepeatMode(looping ? REPEAT_MODE_ALL : REPEAT_MODE_OFF);
   }
 
   @Override
   public void setVolume(double volume) {
+    if (released) return;
     float bracketedValue = (float) Math.max(0.0, Math.min(1.0, volume));
     exoPlayer.setVolume(bracketedValue);
   }
 
   @Override
   public void setPlaybackSpeed(double speed) {
+    if (released) return;
     // We do not need to consider pitch and skipSilence for now as we do not handle them and
     // therefore never diverge from the default values.
     final PlaybackParameters playbackParameters = new PlaybackParameters((float) speed);
@@ -153,16 +170,19 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
 
   @Override
   public long getCurrentPosition() {
+    if (released) return 0L;
     return exoPlayer.getCurrentPosition();
   }
 
   @Override
   public long getBufferedPosition() {
+    if (released) return 0L;
     return exoPlayer.getBufferedPosition();
   }
 
   @Override
   public void seekTo(long position) {
+    if (released) return;
     exoPlayer.seekTo(position);
   }
 
@@ -176,6 +196,9 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @Override
   public @NonNull NativeAudioTrackData getAudioTracks() {
     List<ExoPlayerAudioTrackData> audioTracks = new ArrayList<>();
+    if (released) {
+      return new NativeAudioTrackData(audioTracks);
+    }
 
     // Get the current tracks from ExoPlayer
     Tracks tracks = exoPlayer.getCurrentTracks();
@@ -214,6 +237,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @UnstableApi
   @Override
   public void selectAudioTrack(long groupIndex, long trackIndex) {
+    if (released) return;
     if (trackSelector == null) {
       throw new IllegalStateException("Cannot select audio track: track selector is null");
     }
@@ -266,6 +290,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @Override
   public @NonNull List<PlatformVideoQuality> getAvailableQualities() {
     List<PlatformVideoQuality> qualities = new ArrayList<>();
+    if (released) return qualities;
     Tracks tracks = exoPlayer.getCurrentTracks();
 
     for (int groupIndex = 0; groupIndex < tracks.getGroups().size(); groupIndex++) {
@@ -293,6 +318,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @UnstableApi
   @Override
   public @Nullable PlatformVideoQuality getCurrentQuality() {
+    if (released) return null;
     Format format = exoPlayer.getVideoFormat();
     if (format == null) {
       return null;
@@ -311,6 +337,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @UnstableApi
   @Override
   public void setMaxBitrate(long maxBitrateBps) {
+    if (released) return;
     if (trackSelector == null) {
       return;
     }
@@ -322,6 +349,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @UnstableApi
   @Override
   public void setMaxResolution(long width, long height) {
+    if (released) return;
     if (trackSelector == null) {
       return;
     }
@@ -401,6 +429,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @Override
   public @NonNull List<PlatformVideoDecoder> getAvailableDecoders() {
     List<PlatformVideoDecoder> decoders = new ArrayList<>();
+    if (released) return decoders;
     Format videoFormat = exoPlayer.getVideoFormat();
     String mimeType = null;
     if (videoFormat != null && videoFormat.sampleMimeType != null) {
@@ -448,6 +477,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @UnstableApi
   @Override
   public void setVideoDecoder(@Nullable String decoderName) {
+    if (released) return;
     this.forcedDecoderName = decoderName;
 
     // Capture current playback state before touching the player.
@@ -545,6 +575,8 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   }
 
   public void dispose() {
+    if (released) return;
+    released = true;
     if (disposeHandler != null) {
       disposeHandler.onDispose();
     }
