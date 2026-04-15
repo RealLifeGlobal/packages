@@ -150,6 +150,7 @@ public final class TextureVideoPlayer extends VideoPlayer implements SurfaceProd
 
   @RestrictTo(RestrictTo.Scope.LIBRARY)
   public void onSurfaceAvailable() {
+    if (isReleased()) return;
     if (needsSurface) {
       // TextureVideoPlayer must always set a surfaceProducer.
       assert surfaceProducer != null;
@@ -160,6 +161,7 @@ public final class TextureVideoPlayer extends VideoPlayer implements SurfaceProd
 
   @RestrictTo(RestrictTo.Scope.LIBRARY)
   public void onSurfaceCleanup() {
+    if (isReleased()) return;
     exoPlayer.setVideoSurface(null);
     needsSurface = true;
   }
