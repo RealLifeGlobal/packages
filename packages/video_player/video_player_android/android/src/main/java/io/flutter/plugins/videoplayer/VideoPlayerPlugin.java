@@ -4,10 +4,12 @@
 
 package io.flutter.plugins.videoplayer;
 
+import android.app.ForegroundServiceStartNotAllowedException;
 import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.ServiceConnection;
+import android.os.Build;
 import android.os.IBinder;
 import android.util.LongSparseArray;
 import androidx.annotation.NonNull;
@@ -175,7 +177,17 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
     // placeholder foreground notification. Media3's MediaNotificationManager
     // subsequently replaces it with the full media-style notification once a
     // session with a playing player is added.
-    ContextCompat.startForegroundService(context, intent);
+    try {
+      ContextCompat.startForegroundService(context, intent);
+    } catch (Exception e) {
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+          && e instanceof ForegroundServiceStartNotAllowedException) {
+        Log.w(TAG, "Cannot start foreground service from background, "
+            + "background playback will not be available for this session");
+        return;
+      }
+      throw e;
+    }
     context.bindService(intent, serviceConnection, Context.BIND_AUTO_CREATE);
     serviceBound = true;
   }
