@@ -4,6 +4,7 @@
 
 package io.flutter.plugins.videoplayer.service;
 
+import android.app.ForegroundServiceStartNotAllowedException;
 import android.app.Notification;
 import android.app.NotificationChannel;
 import android.app.NotificationManager;
@@ -64,9 +65,20 @@ public class PlaybackService extends MediaSessionService {
             int type = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
                     ? ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK
                     : 0;
-            ServiceCompat.startForeground(
-                    this, PLACEHOLDER_NOTIFICATION_ID, placeholder, type);
-            placeholderForegroundActive = true;
+            try {
+                ServiceCompat.startForeground(
+                        this, PLACEHOLDER_NOTIFICATION_ID, placeholder, type);
+                placeholderForegroundActive = true;
+            } catch (Exception e) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                        && e instanceof ForegroundServiceStartNotAllowedException) {
+                    Log.w(TAG, "Foreground service start not allowed (app is in background), "
+                            + "stopping service gracefully", e);
+                    stopSelf();
+                    return START_NOT_STICKY;
+                }
+                throw e;
+            }
         }
         return super.onStartCommand(intent, flags, startId);
     }
