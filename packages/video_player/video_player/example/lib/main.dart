@@ -719,6 +719,33 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                               ? () => _controller.disableBackgroundPlayback()
                               : null,
                         ),
+                        ElevatedButton.icon(
+                          icon: const Icon(Icons.bug_report),
+                          label: const Text('Repro FGS race'),
+                          onPressed: () async {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                duration: Duration(seconds: 4),
+                                content: Text(
+                                  'Press HOME in the next 4 seconds, then '
+                                  'return to the app.',
+                                ),
+                              ),
+                            );
+                            await Future<void>.delayed(
+                                const Duration(seconds: 4));
+                            await _controller.enableBackgroundPlayback(
+                              mediaInfo: const MediaInfo(
+                                title: 'Repro',
+                                artist: 'FGS race',
+                              ),
+                            );
+                            await _controller.play();
+                            await Future<void>.delayed(
+                                const Duration(milliseconds: 50));
+                            await _controller.disableBackgroundPlayback();
+                          },
+                        ),
                       ],
                     ),
                     const SizedBox(height: 16),
@@ -726,6 +753,17 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                       'Tip: Enable background playback, start playing, '
                           'then press the home button. Audio should continue '
                           'playing.',
+                      style: TextStyle(
+                        fontStyle: FontStyle.italic,
+                        fontSize: 12,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    const Text(
+                      'Repro FGS race: tap the bug button, then press HOME '
+                          'within 4 s. Media3 calls startForegroundService() '
+                          'but PlaybackService.releaseSession() runs before '
+                          'startForeground(), producing RemoteServiceException.',
                       style: TextStyle(
                         fontStyle: FontStyle.italic,
                         fontSize: 12,
