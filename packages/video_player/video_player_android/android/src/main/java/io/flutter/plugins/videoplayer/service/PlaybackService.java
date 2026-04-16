@@ -15,18 +15,29 @@ import android.os.IBinder;
 import android.util.Log;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
+import androidx.annotation.OptIn;
 import androidx.core.app.NotificationCompat;
+import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.ServiceCompat;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.session.DefaultMediaNotificationProvider;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
 
+@OptIn(markerClass = UnstableApi.class)
 public class PlaybackService extends MediaSessionService {
     private static final String TAG = "PlaybackService";
-    private static final String PLACEHOLDER_CHANNEL_ID = "video_player_playback_placeholder";
-    private static final int PLACEHOLDER_NOTIFICATION_ID = 0x7650414C; // 'vPAL'
+    // Reuse the notification id and channel id that Media3's
+    // DefaultMediaNotificationProvider uses so that when Media3 posts its real
+    // media-style notification it replaces our placeholder in place, and only
+    // one notification channel appears under the app's notification settings.
+    private static final int PLACEHOLDER_NOTIFICATION_ID =
+            DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID;
+    private static final String PLACEHOLDER_CHANNEL_ID =
+            DefaultMediaNotificationProvider.DEFAULT_CHANNEL_ID;
     @Nullable private static PlaybackService instance;
     private MediaSession mediaSession = null;
     private ExoPlayer player = null;
@@ -67,11 +78,16 @@ public class PlaybackService extends MediaSessionService {
         NotificationManager manager = getSystemService(NotificationManager.class);
         if (manager == null
                 || manager.getNotificationChannel(PLACEHOLDER_CHANNEL_ID) != null) {
+            // Channel already exists (usually because Media3's
+            // DefaultMediaNotificationProvider already created it).
             return;
         }
+        // Match Media3's default channel name so only one channel appears in
+        // the app's notification settings. Media3's provider will reuse this
+        // channel if it already exists when it goes to post its notification.
         NotificationChannel channel = new NotificationChannel(
                 PLACEHOLDER_CHANNEL_ID,
-                "Playback",
+                "Now playing",
                 NotificationManager.IMPORTANCE_LOW);
         channel.setShowBadge(false);
         manager.createNotificationChannel(channel);
@@ -148,6 +164,10 @@ public class PlaybackService extends MediaSessionService {
                 return;
             }
         }
+        // Release the session and clear the placeholder notification explicitly
+        // before stopSelf() so the user never sees a lingering "Playback"
+        // notification after swiping the app from recents.
+        releaseSession();
         stopSelf();
     }
 
@@ -167,6 +187,11 @@ public class PlaybackService extends MediaSessionService {
             ServiceCompat.stopForeground(this, ServiceCompat.STOP_FOREGROUND_REMOVE);
             placeholderForegroundActive = false;
         }
+        // Belt-and-braces: stopForeground operates on the service's internal
+        // "current foreground notification" reference, which can drift after
+        // MediaSessionService's own teardown runs. Cancel by id as well so the
+        // user never sees a lingering placeholder if the task is swiped away.
+        NotificationManagerCompat.from(this).cancel(PLACEHOLDER_NOTIFICATION_ID);
     }
 
     @Override
