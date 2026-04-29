@@ -977,6 +977,8 @@ class MediaInfo {
     this.artist,
     this.artworkUrl,
     this.durationMs,
+    this.skipBackwardIntervalMs,
+    this.skipForwardIntervalMs,
   });
 
   /// The title of the media.
@@ -991,6 +993,18 @@ class MediaInfo {
   /// Duration of the media in milliseconds.
   final int? durationMs;
 
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip backward" button on iOS, and the system media notification's
+  /// rewind button on Android. When null, each platform falls back to a
+  /// sensible default (15s on iOS, 15s on Android).
+  final int? skipBackwardIntervalMs;
+
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip forward" button on iOS, and the system media notification's
+  /// fast-forward button on Android. When null, each platform falls back
+  /// to a sensible default (30s on iOS, 30s on Android).
+  final int? skipForwardIntervalMs;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -999,8 +1013,17 @@ class MediaInfo {
           title == other.title &&
           artist == other.artist &&
           artworkUrl == other.artworkUrl &&
-          durationMs == other.durationMs;
+          durationMs == other.durationMs &&
+          skipBackwardIntervalMs == other.skipBackwardIntervalMs &&
+          skipForwardIntervalMs == other.skipForwardIntervalMs;
 
   @override
-  int get hashCode => Object.hash(title, artist, artworkUrl, durationMs);
+  int get hashCode => Object.hash(
+        title,
+        artist,
+        artworkUrl,
+        durationMs,
+        skipBackwardIntervalMs,
+        skipForwardIntervalMs,
+      );
 }

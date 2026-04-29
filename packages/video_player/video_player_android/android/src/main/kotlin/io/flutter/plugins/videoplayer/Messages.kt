@@ -650,7 +650,19 @@ data class PlatformMediaInfo (
   val title: String,
   val artist: String? = null,
   val artworkUrl: String? = null,
-  val durationMs: Long? = null
+  val durationMs: Long? = null,
+  /**
+   * Interval (in milliseconds) used by the system media notification's
+   * "rewind" / seek-back button. When null, ExoPlayer's default
+   * (5_000ms) is used.
+   */
+  val skipBackwardIntervalMs: Long? = null,
+  /**
+   * Interval (in milliseconds) used by the system media notification's
+   * "fast forward" / seek-forward button. When null, ExoPlayer's default
+   * (15_000ms) is used.
+   */
+  val skipForwardIntervalMs: Long? = null
 )
  {
   companion object {
@@ -659,7 +671,9 @@ data class PlatformMediaInfo (
       val artist = pigeonVar_list[1] as String?
       val artworkUrl = pigeonVar_list[2] as String?
       val durationMs = pigeonVar_list[3] as Long?
-      return PlatformMediaInfo(title, artist, artworkUrl, durationMs)
+      val skipBackwardIntervalMs = pigeonVar_list[4] as Long?
+      val skipForwardIntervalMs = pigeonVar_list[5] as Long?
+      return PlatformMediaInfo(title, artist, artworkUrl, durationMs, skipBackwardIntervalMs, skipForwardIntervalMs)
     }
   }
   fun toList(): List<Any?> {
@@ -668,6 +682,8 @@ data class PlatformMediaInfo (
       artist,
       artworkUrl,
       durationMs,
+      skipBackwardIntervalMs,
+      skipForwardIntervalMs,
     )
   }
   override fun equals(other: Any?): Boolean {

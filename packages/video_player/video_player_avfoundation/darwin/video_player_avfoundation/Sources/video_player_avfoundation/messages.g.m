@@ -174,12 +174,16 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
 + (instancetype)makeWithTitle:(NSString *)title
     artist:(nullable NSString *)artist
     artworkUrl:(nullable NSString *)artworkUrl
-    durationMs:(nullable NSNumber *)durationMs {
+    durationMs:(nullable NSNumber *)durationMs
+    skipBackwardIntervalMs:(nullable NSNumber *)skipBackwardIntervalMs
+    skipForwardIntervalMs:(nullable NSNumber *)skipForwardIntervalMs {
   FVPPlatformMediaInfo* pigeonResult = [[FVPPlatformMediaInfo alloc] init];
   pigeonResult.title = title;
   pigeonResult.artist = artist;
   pigeonResult.artworkUrl = artworkUrl;
   pigeonResult.durationMs = durationMs;
+  pigeonResult.skipBackwardIntervalMs = skipBackwardIntervalMs;
+  pigeonResult.skipForwardIntervalMs = skipForwardIntervalMs;
   return pigeonResult;
 }
 + (FVPPlatformMediaInfo *)fromList:(NSArray<id> *)list {
@@ -188,6 +192,8 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
   pigeonResult.artist = GetNullableObjectAtIndex(list, 1);
   pigeonResult.artworkUrl = GetNullableObjectAtIndex(list, 2);
   pigeonResult.durationMs = GetNullableObjectAtIndex(list, 3);
+  pigeonResult.skipBackwardIntervalMs = GetNullableObjectAtIndex(list, 4);
+  pigeonResult.skipForwardIntervalMs = GetNullableObjectAtIndex(list, 5);
   return pigeonResult;
 }
 + (nullable FVPPlatformMediaInfo *)nullableFromList:(NSArray<id> *)list {
@@ -199,6 +205,8 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
     self.artist ?: [NSNull null],
     self.artworkUrl ?: [NSNull null],
     self.durationMs ?: [NSNull null],
+    self.skipBackwardIntervalMs ?: [NSNull null],
+    self.skipForwardIntervalMs ?: [NSNull null],
   ];
 }
 @end

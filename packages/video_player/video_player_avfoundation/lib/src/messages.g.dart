@@ -253,6 +253,8 @@ class PlatformMediaInfo {
     this.artist,
     this.artworkUrl,
     this.durationMs,
+    this.skipBackwardIntervalMs,
+    this.skipForwardIntervalMs,
   });
 
   String title;
@@ -263,12 +265,24 @@ class PlatformMediaInfo {
 
   int? durationMs;
 
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip backward" button. When null, the platform falls back to a default
+  /// (15s) chosen to match the in-app rewind control.
+  int? skipBackwardIntervalMs;
+
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip forward" button. When null, the platform falls back to a default
+  /// (30s) chosen to match the in-app fast-forward control.
+  int? skipForwardIntervalMs;
+
   List<Object?> _toList() {
     return <Object?>[
       title,
       artist,
       artworkUrl,
       durationMs,
+      skipBackwardIntervalMs,
+      skipForwardIntervalMs,
     ];
   }
 
@@ -282,6 +296,8 @@ class PlatformMediaInfo {
       artist: result[1] as String?,
       artworkUrl: result[2] as String?,
       durationMs: result[3] as int?,
+      skipBackwardIntervalMs: result[4] as int?,
+      skipForwardIntervalMs: result[5] as int?,
     );
   }
 

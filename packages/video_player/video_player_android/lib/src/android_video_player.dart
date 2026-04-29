@@ -303,6 +303,8 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
             artist: mediaInfo.artist,
             artworkUrl: mediaInfo.artworkUrl,
             durationMs: mediaInfo.durationMs,
+            skipBackwardIntervalMs: mediaInfo.skipBackwardIntervalMs,
+            skipForwardIntervalMs: mediaInfo.skipForwardIntervalMs,
           )
         : null;
     return _api.enableBackgroundPlayback(playerId, pigeonMediaInfo);

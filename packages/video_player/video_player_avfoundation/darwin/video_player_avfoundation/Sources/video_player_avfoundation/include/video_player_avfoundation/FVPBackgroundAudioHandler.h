@@ -19,7 +19,9 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)enableWithTitle:(nullable NSString *)title
                  artist:(nullable NSString *)artist
              artworkUrl:(nullable NSString *)artworkUrl
-             durationMs:(nullable NSNumber *)durationMs;
+             durationMs:(nullable NSNumber *)durationMs
+   skipBackwardIntervalMs:(nullable NSNumber *)skipBackwardIntervalMs
+    skipForwardIntervalMs:(nullable NSNumber *)skipForwardIntervalMs;
 - (void)disable;
 - (void)updateNowPlayingInfo;
 @end

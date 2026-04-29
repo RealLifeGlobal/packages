@@ -9,6 +9,12 @@
 @import UIKit;
 #endif
 
+// Default skip intervals chosen to match the in-app rewind / fast-forward
+// controls (see audio_player_controller.dart: 15s rewind, 30s fast-forward).
+// Used when the Dart side does not specify explicit values.
+static const NSTimeInterval kFVPDefaultSkipBackwardSeconds = 15.0;
+static const NSTimeInterval kFVPDefaultSkipForwardSeconds = 30.0;
+
 @implementation FVPBackgroundAudioHandler {
   AVPlayer *_player;
   NSString *_title;
@@ -18,6 +24,8 @@
   id _playTarget;
   id _pauseTarget;
   id _seekTarget;
+  id _skipBackwardTarget;
+  id _skipForwardTarget;
   NSNumber *_cachedDuration;
 #if TARGET_OS_IOS
   UIBackgroundTaskIdentifier _backgroundTask;
@@ -50,7 +58,9 @@
 - (void)enableWithTitle:(nullable NSString *)title
                  artist:(nullable NSString *)artist
              artworkUrl:(nullable NSString *)artworkUrl
-             durationMs:(nullable NSNumber *)durationMs {
+             durationMs:(nullable NSNumber *)durationMs
+   skipBackwardIntervalMs:(nullable NSNumber *)skipBackwardIntervalMs
+    skipForwardIntervalMs:(nullable NSNumber *)skipForwardIntervalMs {
 #if TARGET_OS_IOS
   // Remove any existing handlers first to prevent leaks.
   if (_isEnabled) {
@@ -139,6 +149,49 @@
         MPChangePlaybackPositionCommandEvent *posEvent =
             (MPChangePlaybackPositionCommandEvent *)event;
         [self->_player seekToTime:CMTimeMakeWithSeconds(posEvent.positionTime, NSEC_PER_SEC)];
+        return MPRemoteCommandHandlerStatusSuccess;
+      }];
+
+  // Configure the skipBackward / skipForward commands so the lock screen and
+  // Control Center show the small-jump rewind / fast-forward buttons (the
+  // "−15" / "+30" style badges) instead of disabling the controls entirely.
+  // Intervals are caller-configurable; fall back to defaults that match the
+  // in-app controls when the Dart side does not provide values.
+  NSTimeInterval backwardSeconds = skipBackwardIntervalMs != nil
+                                       ? (skipBackwardIntervalMs.doubleValue / 1000.0)
+                                       : kFVPDefaultSkipBackwardSeconds;
+  NSTimeInterval forwardSeconds = skipForwardIntervalMs != nil
+                                      ? (skipForwardIntervalMs.doubleValue / 1000.0)
+                                      : kFVPDefaultSkipForwardSeconds;
+
+  // preferredIntervals must be a non-empty array; the system uses the first
+  // value to render the button badge (e.g. "15") and to compute the seek delta.
+  commandCenter.skipBackwardCommand.preferredIntervals = @[ @(backwardSeconds) ];
+  commandCenter.skipForwardCommand.preferredIntervals = @[ @(forwardSeconds) ];
+
+  _skipBackwardTarget = [commandCenter.skipBackwardCommand
+      addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *event) {
+        MPSkipIntervalCommandEvent *skipEvent = (MPSkipIntervalCommandEvent *)event;
+        // Fall back to the configured interval if the system event omits it.
+        NSTimeInterval delta = skipEvent.interval > 0 ? skipEvent.interval : backwardSeconds;
+        CMTime current = self->_player.currentTime;
+        NSTimeInterval target = MAX(0.0, CMTimeGetSeconds(current) - delta);
+        [self->_player seekToTime:CMTimeMakeWithSeconds(target, NSEC_PER_SEC)];
+        return MPRemoteCommandHandlerStatusSuccess;
+      }];
+
+  _skipForwardTarget = [commandCenter.skipForwardCommand
+      addTargetWithHandler:^MPRemoteCommandHandlerStatus(MPRemoteCommandEvent *event) {
+        MPSkipIntervalCommandEvent *skipEvent = (MPSkipIntervalCommandEvent *)event;
+        NSTimeInterval delta = skipEvent.interval > 0 ? skipEvent.interval : forwardSeconds;
+        CMTime current = self->_player.currentTime;
+        NSTimeInterval target = CMTimeGetSeconds(current) + delta;
+        // Clamp to duration when known so we don't overshoot past the end.
+        CMTime duration = self->_player.currentItem.asset.duration;
+        if (CMTIME_IS_VALID(duration) && !CMTIME_IS_INDEFINITE(duration)) {
+          target = MIN(target, CMTimeGetSeconds(duration));
+        }
+        [self->_player seekToTime:CMTimeMakeWithSeconds(target, NSEC_PER_SEC)];
         return MPRemoteCommandHandlerStatusSuccess;
       }];
 
@@ -294,6 +347,14 @@
   if (_seekTarget) {
     [commandCenter.changePlaybackPositionCommand removeTarget:_seekTarget];
     _seekTarget = nil;
+  }
+  if (_skipBackwardTarget) {
+    [commandCenter.skipBackwardCommand removeTarget:_skipBackwardTarget];
+    _skipBackwardTarget = nil;
+  }
+  if (_skipForwardTarget) {
+    [commandCenter.skipForwardCommand removeTarget:_skipForwardTarget];
+    _skipForwardTarget = nil;
   }
 }
 

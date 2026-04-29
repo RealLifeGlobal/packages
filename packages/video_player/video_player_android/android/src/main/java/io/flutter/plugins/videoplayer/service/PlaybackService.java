@@ -20,13 +20,17 @@ import androidx.annotation.OptIn;
 import androidx.core.app.NotificationCompat;
 import androidx.core.app.NotificationManagerCompat;
 import androidx.core.app.ServiceCompat;
+import androidx.media3.common.ForwardingPlayer;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.MediaMetadata;
+import androidx.media3.common.Player;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.session.CommandButton;
 import androidx.media3.session.DefaultMediaNotificationProvider;
 import androidx.media3.session.MediaSession;
 import androidx.media3.session.MediaSessionService;
+import com.google.common.collect.ImmutableList;
 
 @OptIn(markerClass = UnstableApi.class)
 public class PlaybackService extends MediaSessionService {
@@ -39,6 +43,12 @@ public class PlaybackService extends MediaSessionService {
             DefaultMediaNotificationProvider.DEFAULT_NOTIFICATION_ID;
     private static final String PLACEHOLDER_CHANNEL_ID =
             DefaultMediaNotificationProvider.DEFAULT_CHANNEL_ID;
+    // Default skip intervals chosen to match the in-app rewind / fast-forward
+    // controls (audio_player_controller.dart: 15s rewind, 30s fast-forward).
+    // Used when the Dart side does not specify explicit values.
+    private static final long DEFAULT_SKIP_BACKWARD_MS = 15_000L;
+    private static final long DEFAULT_SKIP_FORWARD_MS = 30_000L;
+
     @Nullable private static PlaybackService instance;
     private MediaSession mediaSession = null;
     private ExoPlayer player = null;
@@ -126,7 +136,9 @@ public class PlaybackService extends MediaSessionService {
     public void setPlayer(@NonNull ExoPlayer exoPlayer,
                           @Nullable String title,
                           @Nullable String artist,
-                          @Nullable String artworkUrl) {
+                          @Nullable String artworkUrl,
+                          @Nullable Long skipBackwardIntervalMs,
+                          @Nullable Long skipForwardIntervalMs) {
         // Release any existing session before creating a new one.
         if (mediaSession != null) {
             mediaSession.release();
@@ -151,14 +163,145 @@ public class PlaybackService extends MediaSessionService {
             }
         }
 
-        mediaSession = new MediaSession.Builder(this, exoPlayer).build();
+        // Wrap the ExoPlayer in a ForwardingPlayer that:
+        //   1. Reports the configured seek-back / seek-forward increments so
+        //      the rewind / fast-forward custom-layout buttons (below) jump by
+        //      the right amount when tapped.
+        //   2. Hides COMMAND_SEEK_TO_PREVIOUS / _NEXT (and the MEDIA_ITEM
+        //      variants). Media3's DefaultMediaNotificationProvider builds
+        //      its prev/next slots from those commands, and with a single-
+        //      item queue "previous" maps to seekToDefaultPosition() which
+        //      jumps to 0 — the exact regression we are fixing. By dropping
+        //      those commands, the prev/next slots are freed for the custom
+        //      rewind / fast-forward buttons we add via setCustomLayout.
+        long backwardMs = skipBackwardIntervalMs != null
+                ? skipBackwardIntervalMs : DEFAULT_SKIP_BACKWARD_MS;
+        long forwardMs = skipForwardIntervalMs != null
+                ? skipForwardIntervalMs : DEFAULT_SKIP_FORWARD_MS;
+        Player sessionPlayer =
+                new SkipIntervalForwardingPlayer(exoPlayer, backwardMs, forwardMs);
+
+        // Build explicit rewind / fast-forward CommandButtons. Without this,
+        // the default notification provider only renders prev/next slots —
+        // which we just removed — and the user is left with play/pause only.
+        // Each button references Player.COMMAND_SEEK_BACK / _FORWARD, which
+        // route to the ForwardingPlayer's overridden seek increments. The
+        // CommandButton.Builder(int icon) constructor takes a predefined
+        // CommandButton.ICON_* constant (the no-arg Builder() and
+        // setIconResId(int) are deprecated since Media3 1.4 and emit
+        // -Werror warnings under the plugin's javac settings).
+        CommandButton rewindButton =
+                new CommandButton.Builder(pickSkipBackIcon(backwardMs))
+                        .setPlayerCommand(Player.COMMAND_SEEK_BACK)
+                        .setSlots(CommandButton.SLOT_BACK)
+                        .setDisplayName("Rewind")
+                        .build();
+        CommandButton forwardButton =
+                new CommandButton.Builder(pickSkipForwardIcon(forwardMs))
+                        .setPlayerCommand(Player.COMMAND_SEEK_FORWARD)
+                        .setSlots(CommandButton.SLOT_FORWARD)
+                        .setDisplayName("Fast forward")
+                        .build();
+
+        mediaSession = new MediaSession.Builder(this, sessionPlayer)
+                .setCustomLayout(ImmutableList.of(rewindButton, forwardButton))
+                .build();
         // Explicitly add the session so MediaSessionService manages its notification.
         // Without this, the session created after onCreate() is never discovered by
         // Media3's internal notification manager (onGetSession is only called when a
         // MediaController connects, which may never happen in our flow).
         addSession(mediaSession);
         Log.d(TAG, "MediaSession created and added, player isPlaying=" + exoPlayer.isPlaying()
-                + ", hasMediaItems=" + (exoPlayer.getMediaItemCount() > 0));
+                + ", hasMediaItems=" + (exoPlayer.getMediaItemCount() > 0)
+                + ", seekBackMs=" + backwardMs + ", seekForwardMs=" + forwardMs);
+    }
+
+    /**
+     * Picks the closest CommandButton.ICON_SKIP_BACK_* constant. Falls back
+     * to the generic ICON_REWIND glyph when the interval doesn't match any
+     * badged variant exactly.
+     */
+    private static int pickSkipBackIcon(long intervalMs) {
+        long seconds = Math.round(intervalMs / 1000.0);
+        if (seconds <= 5) return CommandButton.ICON_SKIP_BACK_5;
+        if (seconds <= 10) return CommandButton.ICON_SKIP_BACK_10;
+        if (seconds <= 15) return CommandButton.ICON_SKIP_BACK_15;
+        if (seconds <= 30) return CommandButton.ICON_SKIP_BACK_30;
+        return CommandButton.ICON_REWIND;
+    }
+
+    /**
+     * Picks the closest CommandButton.ICON_SKIP_FORWARD_* constant. Falls
+     * back to the generic ICON_FAST_FORWARD glyph when the interval doesn't
+     * match any badged variant exactly.
+     */
+    private static int pickSkipForwardIcon(long intervalMs) {
+        long seconds = Math.round(intervalMs / 1000.0);
+        if (seconds <= 5) return CommandButton.ICON_SKIP_FORWARD_5;
+        if (seconds <= 10) return CommandButton.ICON_SKIP_FORWARD_10;
+        if (seconds <= 15) return CommandButton.ICON_SKIP_FORWARD_15;
+        if (seconds <= 30) return CommandButton.ICON_SKIP_FORWARD_30;
+        return CommandButton.ICON_FAST_FORWARD;
+    }
+
+    /**
+     * ForwardingPlayer that overrides seek increments and trims SEEK_TO_NEXT /
+     * SEEK_TO_PREVIOUS commands so the system media notification renders small-
+     * jump rewind / fast-forward buttons (rather than prev/next which, for a
+     * single-item queue, collapse to "seek to start").
+     */
+    private static final class SkipIntervalForwardingPlayer extends ForwardingPlayer {
+        private final long seekBackMs;
+        private final long seekForwardMs;
+
+        SkipIntervalForwardingPlayer(@NonNull Player wrapped,
+                                     long seekBackMs,
+                                     long seekForwardMs) {
+            super(wrapped);
+            this.seekBackMs = seekBackMs;
+            this.seekForwardMs = seekForwardMs;
+        }
+
+        @Override
+        public long getSeekBackIncrement() {
+            return seekBackMs;
+        }
+
+        @Override
+        public long getSeekForwardIncrement() {
+            return seekForwardMs;
+        }
+
+        @Override
+        @NonNull
+        public Commands getAvailableCommands() {
+            Commands base = super.getAvailableCommands();
+            return new Commands.Builder()
+                    .addAll(base)
+                    .remove(COMMAND_SEEK_TO_PREVIOUS)
+                    .remove(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                    .remove(COMMAND_SEEK_TO_NEXT)
+                    .remove(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
+                    .add(COMMAND_SEEK_BACK)
+                    .add(COMMAND_SEEK_FORWARD)
+                    .build();
+        }
+
+        @Override
+        public boolean isCommandAvailable(int command) {
+            switch (command) {
+                case COMMAND_SEEK_TO_PREVIOUS:
+                case COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM:
+                case COMMAND_SEEK_TO_NEXT:
+                case COMMAND_SEEK_TO_NEXT_MEDIA_ITEM:
+                    return false;
+                case COMMAND_SEEK_BACK:
+                case COMMAND_SEEK_FORWARD:
+                    return true;
+                default:
+                    return super.isCommandAvailable(command);
+            }
+        }
     }
 
     @Nullable

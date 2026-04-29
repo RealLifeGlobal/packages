@@ -62,6 +62,16 @@ class PlatformMediaInfo {
   String? artist;
   String? artworkUrl;
   int? durationMs;
+
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip backward" button. When null, the platform falls back to a default
+  /// (15s) chosen to match the in-app rewind control.
+  int? skipBackwardIntervalMs;
+
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip forward" button. When null, the platform falls back to a default
+  /// (30s) chosen to match the in-app fast-forward control.
+  int? skipForwardIntervalMs;
 }
 
 /// Represents a video quality variant (resolution/bitrate combination).

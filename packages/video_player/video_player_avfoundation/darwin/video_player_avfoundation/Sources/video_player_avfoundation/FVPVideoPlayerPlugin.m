@@ -371,7 +371,9 @@ static void upgradeAudioSessionCategory(NSObject<FVPAVAudioSession> *session,
   [player.backgroundAudioHandler enableWithTitle:mediaInfo.title
                                           artist:mediaInfo.artist
                                       artworkUrl:mediaInfo.artworkUrl
-                                      durationMs:mediaInfo.durationMs];
+                                      durationMs:mediaInfo.durationMs
+                          skipBackwardIntervalMs:mediaInfo.skipBackwardIntervalMs
+                           skipForwardIntervalMs:mediaInfo.skipForwardIntervalMs];
   NSLog(@"video_player: [BG-PLUGIN] enableWithTitle completed, handler.isEnabled=%d",
         player.backgroundAudioHandler.isEnabled);
 }
