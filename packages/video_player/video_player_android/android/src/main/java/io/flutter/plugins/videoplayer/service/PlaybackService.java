@@ -290,6 +290,31 @@ public class PlaybackService extends MediaSessionService {
             return seekForwardMs;
         }
 
+        // ForwardingPlayer.seekBack() / seekForward() delegate straight to
+        // the wrapped ExoPlayer, which uses the increment configured at
+        // ExoPlayer.Builder time (default 5_000ms back / 15_000ms forward).
+        // Overriding getSeekBackIncrement() / getSeekForwardIncrement() above
+        // changes only the *reported* value (which the notification icon
+        // badge reads) — not the actual seek delta. Manually compute the
+        // target position so the user gets the configured jump size.
+        @Override
+        public void seekBack() {
+            long target = Math.max(0L, getCurrentPosition() - seekBackMs);
+            seekTo(target);
+        }
+
+        @Override
+        public void seekForward() {
+            long current = getCurrentPosition();
+            long duration = getDuration();
+            long target = current + seekForwardMs;
+            // Clamp to duration when known so we don't seek past the end.
+            if (duration != androidx.media3.common.C.TIME_UNSET) {
+                target = Math.min(target, duration);
+            }
+            seekTo(target);
+        }
+
         @Override
         @NonNull
         public Commands getAvailableCommands() {
