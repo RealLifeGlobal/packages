@@ -203,8 +203,26 @@ public class PlaybackService extends MediaSessionService {
                         .setDisplayName("Fast forward")
                         .build();
 
+        // Set the buttons via setMediaButtonPreferences (NOT setCustomLayout).
+        // Verified by decompiling Media3 1.9.2's MediaNotificationManager:
+        //
+        //   updateNotification(...) {
+        //     ...
+        //     mediaController.getMediaButtonPreferences()  // <-- THIS
+        //     provider.createNotification(session, mediaButtonPreferences, ...)
+        //   }
+        //
+        // The DefaultMediaNotificationProvider then runs them through
+        // CommandButton.getCustomLayoutFromMediaButtonPreferences(list, true, true)
+        // and only the buttons whose slots include SLOT_BACK / SLOT_FORWARD
+        // populate the notification's prev/next slots — which is why we set
+        // those slots on each button above.
+        //
+        // setCustomLayout(...) only flows to legacy MediaController integrations
+        // and does NOT drive the system media notification, so using it alone
+        // would result in the user seeing only play/pause.
         mediaSession = new MediaSession.Builder(this, sessionPlayer)
-                .setCustomLayout(ImmutableList.of(rewindButton, forwardButton))
+                .setMediaButtonPreferences(ImmutableList.of(rewindButton, forwardButton))
                 .build();
         // Explicitly add the session so MediaSessionService manages its notification.
         // Without this, the session created after onCreate() is never discovered by
