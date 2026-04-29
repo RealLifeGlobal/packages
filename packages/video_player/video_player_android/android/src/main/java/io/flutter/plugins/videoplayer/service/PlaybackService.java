@@ -165,15 +165,22 @@ public class PlaybackService extends MediaSessionService {
 
         // Wrap the ExoPlayer in a ForwardingPlayer that:
         //   1. Reports the configured seek-back / seek-forward increments so
-        //      the rewind / fast-forward custom-layout buttons (below) jump by
-        //      the right amount when tapped.
-        //   2. Hides COMMAND_SEEK_TO_PREVIOUS / _NEXT (and the MEDIA_ITEM
-        //      variants). Media3's DefaultMediaNotificationProvider builds
-        //      its prev/next slots from those commands, and with a single-
-        //      item queue "previous" maps to seekToDefaultPosition() which
-        //      jumps to 0 — the exact regression we are fixing. By dropping
-        //      those commands, the prev/next slots are freed for the custom
-        //      rewind / fast-forward buttons we add via setCustomLayout.
+        //      the rewind / fast-forward custom-layout buttons (below) show
+        //      the right "15" / "30" badge.
+        //   2. Overrides seekBack() / seekForward() so the actual seek delta
+        //      matches the badge (the wrapped ExoPlayer's seekBack() uses the
+        //      builder-time increment, which defaults to 5_000ms back /
+        //      15_000ms forward — overriding getSeek*Increment() alone only
+        //      affects the reported value, not the executed jump).
+        //   3. Re-routes COMMAND_SEEK_TO_PREVIOUS / _NEXT through the same
+        //      small-jump logic. The DefaultMediaNotificationProvider already
+        //      prefers our custom SLOT_BACK / SLOT_FORWARD buttons over the
+        //      standard prev/next when both are present, so keeping prev/next
+        //      available doesn't duplicate buttons in the notification — but
+        //      it does ensure the System UI Output Switcher / Quick Settings
+        //      media tile (which always renders |< / >| from the standard
+        //      transport commands) actually works when tapped, instead of
+        //      showing greyed-out controls.
         long backwardMs = skipBackwardIntervalMs != null
                 ? skipBackwardIntervalMs : DEFAULT_SKIP_BACKWARD_MS;
         long forwardMs = skipForwardIntervalMs != null
@@ -315,31 +322,60 @@ public class PlaybackService extends MediaSessionService {
             seekTo(target);
         }
 
+        // Re-route the standard prev/next transport commands through the
+        // small-jump seek logic. The System UI Output Switcher / Quick
+        // Settings media tile renders these as the |< / >| buttons; with a
+        // single-item queue the default ExoPlayer impl maps them to
+        // seekToDefaultPosition() (i.e. seek to 0) and a no-op respectively
+        // — neither of which is what the user wants for an audio lesson.
+        @Override
+        public void seekToPrevious() {
+            seekBack();
+        }
+
+        @Override
+        public void seekToNext() {
+            seekForward();
+        }
+
+        // Also handle the MEDIA_ITEM-specific variants — some system surfaces
+        // dispatch through these instead of the bare seekToPrevious / Next.
+        @Override
+        public void seekToPreviousMediaItem() {
+            seekBack();
+        }
+
+        @Override
+        public void seekToNextMediaItem() {
+            seekForward();
+        }
+
         @Override
         @NonNull
         public Commands getAvailableCommands() {
             Commands base = super.getAvailableCommands();
+            // Keep COMMAND_SEEK_TO_PREVIOUS / _NEXT available so the System
+            // UI Output Switcher / Quick Settings tile renders working
+            // |< / >| controls. Their handlers (seekToPrevious /
+            // seekToNext) are overridden below to perform the same small
+            // jump as seekBack / seekForward, so the user gets consistent
+            // behaviour regardless of which surface they tap.
             return new Commands.Builder()
                     .addAll(base)
-                    .remove(COMMAND_SEEK_TO_PREVIOUS)
-                    .remove(COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
-                    .remove(COMMAND_SEEK_TO_NEXT)
-                    .remove(COMMAND_SEEK_TO_NEXT_MEDIA_ITEM)
                     .add(COMMAND_SEEK_BACK)
                     .add(COMMAND_SEEK_FORWARD)
+                    .add(COMMAND_SEEK_TO_PREVIOUS)
+                    .add(COMMAND_SEEK_TO_NEXT)
                     .build();
         }
 
         @Override
         public boolean isCommandAvailable(int command) {
             switch (command) {
-                case COMMAND_SEEK_TO_PREVIOUS:
-                case COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM:
-                case COMMAND_SEEK_TO_NEXT:
-                case COMMAND_SEEK_TO_NEXT_MEDIA_ITEM:
-                    return false;
                 case COMMAND_SEEK_BACK:
                 case COMMAND_SEEK_FORWARD:
+                case COMMAND_SEEK_TO_PREVIOUS:
+                case COMMAND_SEEK_TO_NEXT:
                     return true;
                 default:
                     return super.isCommandAvailable(command);
