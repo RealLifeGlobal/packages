@@ -154,6 +154,41 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
     return false;
   }
 
+  /// Gets the available video tracks (quality variants) for the video.
+  ///
+  /// Returns a list of [VideoTrack] objects representing the available
+  /// video quality variants. For HLS/DASH streams, this returns the different
+  /// quality levels available. For non-adaptive videos, platform
+  /// implementations may return one or more tracks, or an empty list,
+  /// depending on the media and the metadata available.
+  Future<List<VideoTrack>> getVideoTracks(int playerId) {
+    throw UnimplementedError('getVideoTracks() has not been implemented.');
+  }
+
+  /// Selects which video track (quality variant) is chosen for playback.
+  ///
+  /// Pass a [VideoTrack] to select a specific quality.
+  /// Pass `null` to enable automatic quality selection (adaptive streaming).
+  Future<void> selectVideoTrack(int playerId, VideoTrack? track) {
+    throw UnimplementedError('selectVideoTrack() has not been implemented.');
+  }
+
+  /// Returns whether video track selection is supported on this platform.
+  ///
+  /// This method allows developers to query at runtime whether the current
+  /// platform supports video track (quality) selection functionality. This is
+  /// useful for platforms like web where video track selection may not be
+  /// available.
+  ///
+  /// Returns `true` if [getVideoTracks] and [selectVideoTrack] are supported,
+  /// `false` otherwise.
+  ///
+  /// The default implementation returns `false`. Platform implementations
+  /// should override this to return `true` if they support video track selection.
+  bool isVideoTrackSupportAvailable() {
+    return false;
+  }
+
   /// Returns whether Picture-in-Picture mode is supported on this device.
   Future<bool> isPipSupported() {
     throw UnimplementedError('isPipSupported() has not been implemented.');
@@ -977,6 +1012,8 @@ class MediaInfo {
     this.artist,
     this.artworkUrl,
     this.durationMs,
+    this.skipBackwardIntervalMs,
+    this.skipForwardIntervalMs,
   });
 
   /// The title of the media.
@@ -991,6 +1028,18 @@ class MediaInfo {
   /// Duration of the media in milliseconds.
   final int? durationMs;
 
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip backward" button on iOS, and the system media notification's
+  /// rewind button on Android. When null, each platform falls back to a
+  /// sensible default (15s on iOS, 15s on Android).
+  final int? skipBackwardIntervalMs;
+
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip forward" button on iOS, and the system media notification's
+  /// fast-forward button on Android. When null, each platform falls back
+  /// to a sensible default (30s on iOS, 30s on Android).
+  final int? skipForwardIntervalMs;
+
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -999,8 +1048,116 @@ class MediaInfo {
           title == other.title &&
           artist == other.artist &&
           artworkUrl == other.artworkUrl &&
-          durationMs == other.durationMs;
+          durationMs == other.durationMs &&
+          skipBackwardIntervalMs == other.skipBackwardIntervalMs &&
+          skipForwardIntervalMs == other.skipForwardIntervalMs;
 
   @override
-  int get hashCode => Object.hash(title, artist, artworkUrl, durationMs);
+  int get hashCode => Object.hash(
+        title,
+        artist,
+        artworkUrl,
+        durationMs,
+        skipBackwardIntervalMs,
+        skipForwardIntervalMs,
+      );
+}
+
+/// Represents a video track (quality variant) in a video with its metadata.
+///
+/// For HLS/DASH streams, each [VideoTrack] represents a different quality
+/// level (e.g., 1080p, 720p, 480p). For regular videos, there may be only
+/// one track or none available.
+@immutable
+class VideoTrack {
+  /// Constructs an instance of [VideoTrack].
+  const VideoTrack({
+    required this.id,
+    required this.isSelected,
+    this.label,
+    this.bitrate,
+    this.width,
+    this.height,
+    this.frameRate,
+    this.codec,
+  });
+
+  /// Unique identifier for the video track.
+  ///
+  /// The format is platform-specific:
+  /// - Android: `"{groupIndex}_{trackIndex}"` (e.g., `"0_2"`)
+  /// - iOS: `"variant_{bitrate}"` for HLS, `"asset_{trackID}"` for regular videos
+  final String id;
+
+  /// Whether this track is currently selected.
+  final bool isSelected;
+
+  /// Human-readable label for the track (e.g., "1080p", "720p").
+  ///
+  /// May be null if not available from the platform.
+  final String? label;
+
+  /// Bitrate of the video track in bits per second.
+  ///
+  /// May be null if not available from the platform.
+  final int? bitrate;
+
+  /// Video width in pixels.
+  ///
+  /// May be null if not available from the platform.
+  final int? width;
+
+  /// Video height in pixels.
+  ///
+  /// May be null if not available from the platform.
+  final int? height;
+
+  /// Frame rate in frames per second.
+  ///
+  /// May be null if not available from the platform.
+  final double? frameRate;
+
+  /// Video codec used (e.g., "avc1", "hevc", "vp9").
+  ///
+  /// May be null if not available from the platform.
+  final String? codec;
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is VideoTrack &&
+            runtimeType == other.runtimeType &&
+            id == other.id &&
+            isSelected == other.isSelected &&
+            label == other.label &&
+            bitrate == other.bitrate &&
+            width == other.width &&
+            height == other.height &&
+            frameRate == other.frameRate &&
+            codec == other.codec;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    id,
+    isSelected,
+    label,
+    bitrate,
+    width,
+    height,
+    frameRate,
+    codec,
+  );
+
+  @override
+  String toString() =>
+      'VideoTrack('
+      'id: $id, '
+      'isSelected: $isSelected, '
+      'label: $label, '
+      'bitrate: $bitrate, '
+      'width: $width, '
+      'height: $height, '
+      'frameRate: $frameRate, '
+      'codec: $codec)';
 }

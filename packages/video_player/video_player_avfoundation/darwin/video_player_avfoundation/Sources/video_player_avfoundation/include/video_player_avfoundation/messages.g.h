@@ -68,11 +68,21 @@ NS_ASSUME_NONNULL_BEGIN
 + (instancetype)makeWithTitle:(NSString *)title
     artist:(nullable NSString *)artist
     artworkUrl:(nullable NSString *)artworkUrl
-    durationMs:(nullable NSNumber *)durationMs;
+    durationMs:(nullable NSNumber *)durationMs
+    skipBackwardIntervalMs:(nullable NSNumber *)skipBackwardIntervalMs
+    skipForwardIntervalMs:(nullable NSNumber *)skipForwardIntervalMs;
 @property(nonatomic, copy) NSString * title;
 @property(nonatomic, copy, nullable) NSString * artist;
 @property(nonatomic, copy, nullable) NSString * artworkUrl;
 @property(nonatomic, strong, nullable) NSNumber * durationMs;
+/// Interval (in milliseconds) used by the lock-screen / Control Center
+/// "skip backward" button. When null, the platform falls back to a default
+/// (15s) chosen to match the in-app rewind control.
+@property(nonatomic, strong, nullable) NSNumber * skipBackwardIntervalMs;
+/// Interval (in milliseconds) used by the lock-screen / Control Center
+/// "skip forward" button. When null, the platform falls back to a default
+/// (30s) chosen to match the in-app fast-forward control.
+@property(nonatomic, strong, nullable) NSNumber * skipForwardIntervalMs;
 @end
 
 /// Represents a video quality variant (resolution/bitrate combination).

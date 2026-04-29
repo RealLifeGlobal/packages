@@ -800,6 +800,8 @@ class PlatformMediaInfo {
     this.artist,
     this.artworkUrl,
     this.durationMs,
+    this.skipBackwardIntervalMs,
+    this.skipForwardIntervalMs,
   });
 
   String title;
@@ -810,12 +812,24 @@ class PlatformMediaInfo {
 
   int? durationMs;
 
+  /// Interval (in milliseconds) used by the system media notification's
+  /// "rewind" / seek-back button. When null, ExoPlayer's default
+  /// (5_000ms) is used.
+  int? skipBackwardIntervalMs;
+
+  /// Interval (in milliseconds) used by the system media notification's
+  /// "fast forward" / seek-forward button. When null, ExoPlayer's default
+  /// (15_000ms) is used.
+  int? skipForwardIntervalMs;
+
   List<Object?> _toList() {
     return <Object?>[
       title,
       artist,
       artworkUrl,
       durationMs,
+      skipBackwardIntervalMs,
+      skipForwardIntervalMs,
     ];
   }
 
@@ -829,6 +843,8 @@ class PlatformMediaInfo {
       artist: result[1] as String?,
       artworkUrl: result[2] as String?,
       durationMs: result[3] as int?,
+      skipBackwardIntervalMs: result[4] as int?,
+      skipForwardIntervalMs: result[5] as int?,
     );
   }
 

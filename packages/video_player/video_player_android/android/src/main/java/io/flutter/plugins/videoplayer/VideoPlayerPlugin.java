@@ -158,7 +158,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
             service.setPlayer(pendingServicePlayer,
                 pendingMediaInfo != null ? pendingMediaInfo.getTitle() : null,
                 pendingMediaInfo != null ? pendingMediaInfo.getArtist() : null,
-                pendingMediaInfo != null ? pendingMediaInfo.getArtworkUrl() : null);
+                pendingMediaInfo != null ? pendingMediaInfo.getArtworkUrl() : null,
+                pendingMediaInfo != null ? pendingMediaInfo.getSkipBackwardIntervalMs() : null,
+                pendingMediaInfo != null ? pendingMediaInfo.getSkipForwardIntervalMs() : null);
             pendingServicePlayer = null;
             pendingMediaInfo = null;
           } else {
@@ -366,7 +368,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
       service.setPlayer(exoPlayer,
           mediaInfo != null ? mediaInfo.getTitle() : null,
           mediaInfo != null ? mediaInfo.getArtist() : null,
-          mediaInfo != null ? mediaInfo.getArtworkUrl() : null);
+          mediaInfo != null ? mediaInfo.getArtworkUrl() : null,
+          mediaInfo != null ? mediaInfo.getSkipBackwardIntervalMs() : null,
+          mediaInfo != null ? mediaInfo.getSkipForwardIntervalMs() : null);
     } else {
       // Store references so onServiceConnected can pass them to the service.
       pendingServicePlayer = exoPlayer;
