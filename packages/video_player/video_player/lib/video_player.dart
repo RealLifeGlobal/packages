@@ -30,6 +30,7 @@ export 'package:video_player_platform_interface/video_player_platform_interface.
         VideoViewType;
 
 export 'src/closed_caption_file.dart';
+export 'src/video_player_viewport_guard.dart';
 
 /// Represents an audio track in a video with its metadata.
 @immutable
@@ -361,12 +362,15 @@ class VideoPlayerValue {
           : this.errorDescription,
       isCompleted: isCompleted ?? this.isCompleted,
       isPipActive: isPipActive ?? this.isPipActive,
-      isPlayingInBackground: isPlayingInBackground ?? this.isPlayingInBackground,
-      isAutoEnterPipEnabled: isAutoEnterPipEnabled ?? this.isAutoEnterPipEnabled,
+      isPlayingInBackground:
+          isPlayingInBackground ?? this.isPlayingInBackground,
+      isAutoEnterPipEnabled:
+          isAutoEnterPipEnabled ?? this.isAutoEnterPipEnabled,
       pipSize: pipSize != _defaultPipSize ? pipSize : this.pipSize,
       currentQuality: currentQuality ?? this.currentQuality,
       decoderName: decoderName ?? this.decoderName,
-      isDecoderHardwareAccelerated: isDecoderHardwareAccelerated ?? this.isDecoderHardwareAccelerated,
+      isDecoderHardwareAccelerated:
+          isDecoderHardwareAccelerated ?? this.isDecoderHardwareAccelerated,
     );
   }
 
@@ -439,7 +443,17 @@ class VideoPlayerValue {
     errorDescription,
     size,
     rotationCorrection,
-    Object.hash(isInitialized, isCompleted, isPipActive, isPlayingInBackground, isAutoEnterPipEnabled, pipSize, currentQuality, decoderName, isDecoderHardwareAccelerated),
+    Object.hash(
+      isInitialized,
+      isCompleted,
+      isPipActive,
+      isPlayingInBackground,
+      isAutoEnterPipEnabled,
+      pipSize,
+      currentQuality,
+      decoderName,
+      isDecoderHardwareAccelerated,
+    ),
   );
 }
 
@@ -1292,7 +1306,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
   /// each decoder is hardware-accelerated or software-only.
   /// Currently only supported on Android.
   Future<List<platform_interface.VideoDecoderInfo>>
-      getAvailableDecoders() async {
+  getAvailableDecoders() async {
     if (_isDisposedOrNotInitialized) {
       return <platform_interface.VideoDecoderInfo>[];
     }

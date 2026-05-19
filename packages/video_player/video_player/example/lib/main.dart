@@ -13,6 +13,7 @@ import 'package:video_player/video_player.dart';
 
 import 'audio_tracks_demo.dart';
 import 'decoder_demo.dart';
+import 'platform_view_scroll_demo.dart';
 
 void main() {
   runApp(MaterialApp(home: _App()));
@@ -67,6 +68,20 @@ class _App extends StatelessWidget {
                 );
               },
             ),
+            IconButton(
+              key: const ValueKey<String>('platform_view_scroll_demo'),
+              icon: const Icon(Icons.dynamic_feed),
+              tooltip: 'Platform view scroll & tabs demo',
+              onPressed: () {
+                Navigator.push<PlatformViewScrollDemo>(
+                  context,
+                  MaterialPageRoute<PlatformViewScrollDemo>(
+                    builder: (BuildContext context) =>
+                        const PlatformViewScrollDemo(),
+                  ),
+                );
+              },
+            ),
           ],
           bottom: const TabBar(
             isScrollable: true,
@@ -95,16 +110,13 @@ class _App extends StatelessWidget {
                   _ButterFlyAssetVideoInList(viewType),
             ),
             _ViewTypeTabBar(
-              builder: (VideoViewType viewType) =>
-                  _HlsAbrDemo(viewType),
+              builder: (VideoViewType viewType) => _HlsAbrDemo(viewType),
             ),
             _ViewTypeTabBar(
-              builder: (VideoViewType viewType) =>
-                  DecoderDemo(viewType),
+              builder: (VideoViewType viewType) => DecoderDemo(viewType),
             ),
             _ViewTypeTabBar(
-              builder: (VideoViewType viewType) =>
-                  _AudioOnlyRemote(viewType),
+              builder: (VideoViewType viewType) => _AudioOnlyRemote(viewType),
             ),
           ],
         ),
@@ -636,10 +648,7 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                     // PiP section
                     Text(
                       'Picture-in-Picture',
-                      style: Theme
-                          .of(context)
-                          .textTheme
-                          .titleMedium,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
                     Text('Supported: $_pipSupported'),
@@ -663,18 +672,22 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                               : null,
                         ),
                         ElevatedButton.icon(
-                          icon: Icon(_autoEnterPip
-                              ? Icons.auto_awesome
-                              : Icons.auto_awesome_outlined),
-                          label: Text(_autoEnterPip
-                              ? 'Disable Auto-PiP'
-                              : 'Enable Auto-PiP'),
+                          icon: Icon(
+                            _autoEnterPip
+                                ? Icons.auto_awesome
+                                : Icons.auto_awesome_outlined,
+                          ),
+                          label: Text(
+                            _autoEnterPip
+                                ? 'Disable Auto-PiP'
+                                : 'Enable Auto-PiP',
+                          ),
                           onPressed: _pipSupported
                               ? () {
-                            final newValue = !_autoEnterPip;
-                            _controller.setAutoEnterPip(newValue);
-                            setState(() => _autoEnterPip = newValue);
-                          }
+                                  final newValue = !_autoEnterPip;
+                                  _controller.setAutoEnterPip(newValue);
+                                  setState(() => _autoEnterPip = newValue);
+                                }
                               : null,
                         ),
                       ],
@@ -684,15 +697,10 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                     // Background playback section
                     Text(
                       'Background Playback',
-                      style: Theme
-                          .of(context)
-                          .textTheme
-                          .titleMedium,
+                      style: Theme.of(context).textTheme.titleMedium,
                     ),
                     const SizedBox(height: 8),
-                    Text(
-                      'Enabled: ${_controller.value.isPlayingInBackground}',
-                    ),
+                    Text('Enabled: ${_controller.value.isPlayingInBackground}'),
                     const SizedBox(height: 8),
                     Wrap(
                       spacing: 8,
@@ -701,15 +709,14 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                           icon: const Icon(Icons.volume_up),
                           label: const Text('Enable Background'),
                           onPressed: !_controller.value.isPlayingInBackground
-                              ? () =>
-                              _controller.enableBackgroundPlayback(
-                                mediaInfo: const MediaInfo(
-                                  title: 'Bumblebee Video',
-                                  artist: 'Flutter',
-                                  artworkUrl:
-                                      'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
-                                ),
-                              )
+                              ? () => _controller.enableBackgroundPlayback(
+                                  mediaInfo: const MediaInfo(
+                                    title: 'Bumblebee Video',
+                                    artist: 'Flutter',
+                                    artworkUrl:
+                                        'https://storage.googleapis.com/gtv-videos-bucket/sample/images/BigBuckBunny.jpg',
+                                  ),
+                                )
                               : null,
                         ),
                         ElevatedButton.icon(
@@ -733,7 +740,8 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                               ),
                             );
                             await Future<void>.delayed(
-                                const Duration(seconds: 4));
+                              const Duration(seconds: 4),
+                            );
                             await _controller.enableBackgroundPlayback(
                               mediaInfo: const MediaInfo(
                                 title: 'Repro',
@@ -742,7 +750,8 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                             );
                             await _controller.play();
                             await Future<void>.delayed(
-                                const Duration(milliseconds: 50));
+                              const Duration(milliseconds: 50),
+                            );
                             await _controller.disableBackgroundPlayback();
                           },
                         ),
@@ -751,8 +760,8 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                     const SizedBox(height: 16),
                     const Text(
                       'Tip: Enable background playback, start playing, '
-                          'then press the home button. Audio should continue '
-                          'playing.',
+                      'then press the home button. Audio should continue '
+                      'playing.',
                       style: TextStyle(
                         fontStyle: FontStyle.italic,
                         fontSize: 12,
@@ -761,9 +770,9 @@ class _PipBackgroundDemoState extends State<_PipBackgroundDemo> {
                     const SizedBox(height: 8),
                     const Text(
                       'Repro FGS race: tap the bug button, then press HOME '
-                          'within 4 s. Media3 calls startForegroundService() '
-                          'but PlaybackService.releaseSession() runs before '
-                          'startForeground(), producing RemoteServiceException.',
+                      'within 4 s. Media3 calls startForegroundService() '
+                      'but PlaybackService.releaseSession() runs before '
+                      'startForeground(), producing RemoteServiceException.',
                       style: TextStyle(
                         fontStyle: FontStyle.italic,
                         fontSize: 12,
@@ -838,15 +847,12 @@ class _HlsAbrDemoState extends State<_HlsAbrDemo> {
   }
 
   Future<void> _refreshAll() async {
-    await Future.wait(<Future<void>>[
-      _refreshQualities(),
-      _refreshCacheInfo(),
-    ]);
+    await Future.wait(<Future<void>>[_refreshQualities(), _refreshCacheInfo()]);
   }
 
   Future<void> _refreshQualities() async {
-    final List<VideoQuality> qualities =
-        await _controller.getAvailableQualities();
+    final List<VideoQuality> qualities = await _controller
+        .getAvailableQualities();
     // Sort by height ascending so buttons show low-to-high.
     qualities.sort(
       (VideoQuality a, VideoQuality b) => a.height.compareTo(b.height),
@@ -925,10 +931,7 @@ class _HlsAbrDemoState extends State<_HlsAbrDemo> {
   @override
   Widget build(BuildContext context) {
     final TextStyle? titleStyle = Theme.of(context).textTheme.titleMedium;
-    const monoStyle = TextStyle(
-      fontFamily: 'monospace',
-      fontSize: 12,
-    );
+    const monoStyle = TextStyle(fontFamily: 'monospace', fontSize: 12);
 
     return SingleChildScrollView(
       child: Column(
@@ -1091,7 +1094,8 @@ class _HlsAbrDemoState extends State<_HlsAbrDemo> {
                     OutlinedButton(
                       onPressed: () async {
                         await VideoPlayerController.setCacheEnabled(
-                            !_cacheEnabled);
+                          !_cacheEnabled,
+                        );
                         _addLog(
                           'Cache ${!_cacheEnabled ? "enabled" : "disabled"}',
                         );
@@ -1233,17 +1237,20 @@ class _AudioOnlyRemoteState extends State<_AudioOnlyRemote> {
         setState(() {});
       }
     });
-    _controller.initialize().then((_) {
-      if (mounted) {
-        setState(() {});
-      }
-    }).catchError((Object err) {
-      if (mounted) {
-        setState(() {
-          _initError = err;
+    _controller
+        .initialize()
+        .then((_) {
+          if (mounted) {
+            setState(() {});
+          }
+        })
+        .catchError((Object err) {
+          if (mounted) {
+            setState(() {
+              _initError = err;
+            });
+          }
         });
-      }
-    });
   }
 
   @override
@@ -1293,8 +1300,10 @@ class _AudioOnlyRemoteState extends State<_AudioOnlyRemote> {
           else ...<Widget>[
             Text('Duration: ${_fmt(value.duration)}'),
             Text('Position: ${_fmt(value.position)}'),
-            Text('Size: ${value.size.width.toInt()}x${value.size.height.toInt()}'
-                ' (audio-only = 0x0)'),
+            Text(
+              'Size: ${value.size.width.toInt()}x${value.size.height.toInt()}'
+              ' (audio-only = 0x0)',
+            ),
             const SizedBox(height: 12),
             VideoProgressIndicator(_controller, allowScrubbing: true),
             const SizedBox(height: 12),

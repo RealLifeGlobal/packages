@@ -1,3 +1,7 @@
+## 2.9.6
+
+* Safely decouples the ExoPlayer surface before releasing the SurfaceView inside the platform view on disposal, preventing decoder lockups and infinite loading spinners on re-attachment.
+
 ## 2.9.5
 
 * Updates build files from Groovy to Kotlin.

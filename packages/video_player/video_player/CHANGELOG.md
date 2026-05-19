@@ -1,3 +1,7 @@
+## 2.12.0
+
+* Adds `VideoPlayerViewportGuard` widget to automatically detach Android platform views when they scroll off-screen or transition to a hidden tab, solving overlapping and clipping glitches.
+
 ## 2.11.1
 
 * Optimizes caption retrieval with binary search.
