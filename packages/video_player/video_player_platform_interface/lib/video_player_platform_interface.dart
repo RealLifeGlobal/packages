@@ -119,9 +119,7 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
 
   /// Sets whether the video should continue to play in the background.
   Future<void> setAllowBackgroundPlayback(bool allowBackgroundPlayback) {
-    throw UnimplementedError(
-      'setAllowBackgroundPlayback() has not been implemented.',
-    );
+    throw UnimplementedError('setAllowBackgroundPlayback() has not been implemented.');
   }
 
   /// Sets additional options on web.
@@ -221,25 +219,19 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
   /// On Android, this starts a foreground service with a media notification.
   /// On iOS, this configures the audio session and sets up lock screen controls.
   Future<void> enableBackgroundPlayback(int playerId, {MediaInfo? mediaInfo}) {
-    throw UnimplementedError(
-      'enableBackgroundPlayback() has not been implemented.',
-    );
+    throw UnimplementedError('enableBackgroundPlayback() has not been implemented.');
   }
 
   /// Disables background playback for the given player.
   Future<void> disableBackgroundPlayback(int playerId) {
-    throw UnimplementedError(
-      'disableBackgroundPlayback() has not been implemented.',
-    );
+    throw UnimplementedError('disableBackgroundPlayback() has not been implemented.');
   }
 
   // Cache control methods
 
   /// Sets the maximum cache size in bytes.
   Future<void> setCacheMaxSize(int maxSizeBytes) {
-    throw UnimplementedError(
-      'setCacheMaxSize() has not been implemented.',
-    );
+    throw UnimplementedError('setCacheMaxSize() has not been implemented.');
   }
 
   /// Clears all cached video data.
@@ -266,16 +258,12 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
 
   /// Returns the available video quality variants for the given player.
   Future<List<VideoQuality>> getAvailableQualities(int playerId) {
-    throw UnimplementedError(
-      'getAvailableQualities() has not been implemented.',
-    );
+    throw UnimplementedError('getAvailableQualities() has not been implemented.');
   }
 
   /// Returns the current video quality for the given player.
   Future<VideoQuality?> getCurrentQuality(int playerId) {
-    throw UnimplementedError(
-      'getCurrentQuality() has not been implemented.',
-    );
+    throw UnimplementedError('getCurrentQuality() has not been implemented.');
   }
 
   /// Sets the maximum video bitrate in bits per second.
@@ -295,17 +283,13 @@ abstract class VideoPlayerPlatform extends PlatformInterface {
   /// The list is filtered by the current video's MIME type. Each entry
   /// indicates whether the decoder is hardware-accelerated or software-only.
   Future<List<VideoDecoderInfo>> getAvailableDecoders(int playerId) {
-    throw UnimplementedError(
-      'getAvailableDecoders() has not been implemented.',
-    );
+    throw UnimplementedError('getAvailableDecoders() has not been implemented.');
   }
 
   /// Returns the name of the currently active video decoder, or null if
   /// no decoder has been initialized yet.
   Future<String?> getCurrentDecoderName(int playerId) {
-    throw UnimplementedError(
-      'getCurrentDecoderName() has not been implemented.',
-    );
+    throw UnimplementedError('getCurrentDecoderName() has not been implemented.');
   }
 
   /// Forces the player to use a specific video decoder by name.
@@ -633,8 +617,7 @@ class DurationRange {
   }
 
   @override
-  String toString() =>
-      '${objectRuntimeType(this, 'DurationRange')}(start: $start, end: $end)';
+  String toString() => '${objectRuntimeType(this, 'DurationRange')}(start: $start, end: $end)';
 
   @override
   bool operator ==(Object other) =>
@@ -685,10 +668,7 @@ class VideoPlayerOptions {
 @immutable
 class AndroidVideoPlayerOptions {
   /// Creates Android-specific video player options.
-  const AndroidVideoPlayerOptions({
-    this.maxLoadRetries = 5,
-    this.maxPlayerRecoveryAttempts = 3,
-  });
+  const AndroidVideoPlayerOptions({this.maxLoadRetries = 5, this.maxPlayerRecoveryAttempts = 3});
 
   /// Max retries per segment/load error before escalating
   /// (ExoPlayer LoadErrorHandlingPolicy).
@@ -883,16 +863,8 @@ class VideoAudioTrack {
   }
 
   @override
-  int get hashCode => Object.hash(
-    id,
-    label,
-    language,
-    isSelected,
-    bitrate,
-    sampleRate,
-    channelCount,
-    codec,
-  );
+  int get hashCode =>
+      Object.hash(id, label, language, isSelected, bitrate, sampleRate, channelCount, codec);
 
   @override
   String toString() =>
@@ -1054,13 +1026,13 @@ class MediaInfo {
 
   @override
   int get hashCode => Object.hash(
-        title,
-        artist,
-        artworkUrl,
-        durationMs,
-        skipBackwardIntervalMs,
-        skipForwardIntervalMs,
-      );
+    title,
+    artist,
+    artworkUrl,
+    durationMs,
+    skipBackwardIntervalMs,
+    skipForwardIntervalMs,
+  );
 }
 
 /// Represents a video track (quality variant) in a video with its metadata.
@@ -1138,16 +1110,7 @@ class VideoTrack {
   }
 
   @override
-  int get hashCode => Object.hash(
-    id,
-    isSelected,
-    label,
-    bitrate,
-    width,
-    height,
-    frameRate,
-    codec,
-  );
+  int get hashCode => Object.hash(id, isSelected, label, bitrate, width, height, frameRate, codec);
 
   @override
   String toString() =>
