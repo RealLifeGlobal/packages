@@ -1,3 +1,12 @@
+## 2.9.8
+
+* Fixes fatal crashes that occurred when the app was backgrounded while a video player was alive,
+  most frequently for "Designed for iPad" apps running on Apple Silicon Macs. Pauses the texture
+  display link while backgrounded to avoid an `EXC_BAD_ACCESS` in
+  `-[FlutterEngine textureFrameAvailable:]`, and guards event-channel delivery against a torn-down
+  engine to avoid an uncaught `NSInternalInconsistencyException` ("Sending a message before the
+  FlutterEngine has been run.").
+
 ## 2.9.7
 
 * Forces tone-mapping to SDR on iOS to prevent washed-out HDR video playback.

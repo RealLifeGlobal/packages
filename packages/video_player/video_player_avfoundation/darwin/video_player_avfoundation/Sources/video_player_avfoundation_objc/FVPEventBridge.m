@@ -127,9 +127,24 @@
 /// Sends the given event to the event sink if it is ready to receive events, or enqueues it to send
 /// later if not.
 - (void)sendOrQueue:(id)event {
-  if (self.eventSink) {
-    self.eventSink(event);
-  } else {
+  FlutterEventSink eventSink = self.eventSink;
+  if (!eventSink) {
+    [self.queuedEvents addObject:event];
+    return;
+  }
+
+  // The event sink dispatches over the Flutter binary messenger, which asserts that the engine is
+  // running. The engine can be torn down (or suspended into a not-running state) while AVPlayer KVO
+  // callbacks are still firing — most notably for "Designed for iPad" apps running on Apple Silicon
+  // Macs, where the app keeps ticking while its window is backgrounded. Sending on a dead engine
+  // raises NSInternalInconsistencyException ("Sending a message before the FlutterEngine has been
+  // run."), which would otherwise propagate as an uncaught fatal exception. Catch it and re-queue
+  // the event so it is delivered if the channel is listened to again.
+  @try {
+    eventSink(event);
+  } @catch (NSException *exception) {
+    // queuedEvents is nil once the Dart side has cancelled the stream, in which case the event is
+    // intentionally discarded (messaging nil is a no-op).
     [self.queuedEvents addObject:event];
   }
 }
