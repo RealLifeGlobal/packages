@@ -1,5 +1,7 @@
-## 2.9.8
+## 2.10.0
 
+* Implements `getVideoTracks()` and `selectVideoTrack()` methods for video track (quality) selection using AVFoundation.
+* Video track selection requires iOS 15+ / macOS 12+ for HLS streams.
 * Fixes fatal crashes that occurred when the app was backgrounded while a video player was alive,
   most frequently for "Designed for iPad" apps running on Apple Silicon Macs. Pauses the texture
   display link while backgrounded to avoid an `EXC_BAD_ACCESS` in

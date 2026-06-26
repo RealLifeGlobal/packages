@@ -7,9 +7,6 @@ import 'dart:js_interop';
 import 'package:web/web.dart' as web;
 
 /// Adds a "controlsList" setter to [web.HTMLMediaElement]s.
-///
-/// `disablePictureInPicture` and `disableRemotePlayback` are now available
-/// directly in `package:web`, but `controlsList` is not yet included.
 extension NonStandardSettersOnMediaElement on web.HTMLMediaElement {
   external set controlsList(String? controlsList);
 }

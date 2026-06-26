@@ -1,3 +1,7 @@
+## 2.9.7
+
+* Fixes a [bug](https://github.com/flutter/flutter/issues/184241) where the video freezes after returning from a full-screen transition on Android.
+
 ## 2.9.6
 
 * Safely decouples the ExoPlayer surface before releasing the SurfaceView inside the platform view on disposal, preventing decoder lockups and infinite loading spinners on re-attachment.
