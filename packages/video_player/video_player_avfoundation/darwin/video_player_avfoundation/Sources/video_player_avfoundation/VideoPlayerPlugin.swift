@@ -172,8 +172,11 @@ public final class VideoPlayerPlugin: NSObject, FlutterPlugin, AVFoundationVideo
   func createTexturePlayer(options creationOptions: CreationOptions) throws -> TexturePlayerIds {
     let item = try playerItem(with: creationOptions)
     let frameUpdater = FVPFrameUpdater(registry: textureRegistry)
-    let displayLink = displayLinkFactory.displayLink(with: viewProvider) {
-      frameUpdater.displayLinkFired()
+    // Capture the frame updater weakly so the display link's run-loop registration can't keep the
+    // updater (and the whole player graph) alive past disposal. A callback that fires after the
+    // player is gone then becomes a no-op instead of messaging a torn-down engine.
+    let displayLink = displayLinkFactory.displayLink(with: viewProvider) { [weak frameUpdater] in
+      frameUpdater?.displayLinkFired()
     }
 
     let player = FVPTextureBasedVideoPlayer(

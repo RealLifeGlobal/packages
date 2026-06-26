@@ -24,6 +24,10 @@ NS_ASSUME_NONNULL_BEGIN
 /// The time interval between screen refresh updates. Display link duration is in an undefined state
 /// until displayLinkFired is called at least once so it should not be used directly.
 @property(atomic) CFTimeInterval frameDuration;
+/// Whether the owning player has been disposed. Once set, displayLinkFired stops delivering frames
+/// to the engine, so a stray display-link callback that survives disposal can't message a
+/// torn-down texture registry.
+@property(nonatomic) BOOL disposed;
 
 /// Initializes a new instance of FVPFrameUpdater with the given Flutter texture registry.
 - (FVPFrameUpdater *)initWithRegistry:(NSObject<FlutterTextureRegistry> *)registry;

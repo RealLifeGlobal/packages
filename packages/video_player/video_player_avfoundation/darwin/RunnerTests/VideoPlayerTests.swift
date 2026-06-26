@@ -200,6 +200,31 @@ private let hlsAudioTestURI =
     #expect(!stubDisplayLinkFactory.displayLink.running)
   }
 
+  @Test func disposeInvalidatesDisplayLink() async throws {
+    // Regression test for an EXC_BAD_ACCESS in -[FlutterEngine textureFrameAvailable:]: disposing a
+    // player must invalidate its display link (remove it from the run loop), not merely pause it, so
+    // that a deferred display-link callback can't fire into a torn-down engine during app teardown.
+    let stubDisplayLinkFactory = StubFVPDisplayLinkFactory()
+    let mockVideoOutput = TestPixelBufferSource()
+    let videoPlayerPlugin = try createInitializedPlugin(
+      avFactory: StubFVPAVFactory(pixelBufferSource: mockVideoOutput),
+      displayLinkFactory: stubDisplayLinkFactory)
+
+    var error: FlutterError?
+    let identifiers = try videoPlayerPlugin.createTexturePlayer(
+      options: CreationOptions(uri: hlsTestURI, httpHeaders: [:]))
+    let player =
+      videoPlayerPlugin.playersByIdentifier[identifiers.playerId] as! FVPTextureBasedVideoPlayer
+
+    player.playWithError(&error)
+    #expect(error == nil)
+    #expect(!stubDisplayLinkFactory.displayLink.invalidated)
+
+    player.disposeWithError(&error)
+    #expect(error == nil)
+    #expect(stubDisplayLinkFactory.displayLink.invalidated)
+  }
+
   @Test func deregistersFromPlayer() throws {
     let videoPlayerPlugin = try createInitializedPlugin()
 
