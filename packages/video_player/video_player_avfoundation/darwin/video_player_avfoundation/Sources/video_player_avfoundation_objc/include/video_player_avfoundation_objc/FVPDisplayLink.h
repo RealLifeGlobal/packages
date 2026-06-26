@@ -19,6 +19,15 @@ NS_ASSUME_NONNULL_BEGIN
 /// The time interval between screen refresh updates.
 @property(nonatomic, readonly) CFTimeInterval duration;
 
+/// Stops the display link and removes it from the run loop, so that it will never fire again.
+///
+/// Unlike setting `running` to NO (which only pauses), this permanently tears the link down. It
+/// must be called when the owning player is disposed: a merely-paused link stays registered in the
+/// run loop and can still deliver a deferred callback during app termination (e.g. the AppKit
+/// `-[NSApplication terminate:]` run-loop pump for "Designed for iPad" apps on Apple Silicon Macs),
+/// firing `textureFrameAvailable:` into an engine that is being torn down. Idempotent.
+- (void)invalidate;
+
 @end
 
 // An implementation of FVPDisplayLink using CADisplayLink.

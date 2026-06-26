@@ -69,8 +69,13 @@ API_AVAILABLE(ios(4.0), macos(14.0))
   [_displayLink invalidate];
 }
 
+- (void)invalidate {
+  [_displayLink invalidate];
+  _displayLink = nil;
+}
+
 - (BOOL)running {
-  return !self.displayLink.paused;
+  return self.displayLink != nil && !self.displayLink.paused;
 }
 
 - (void)setRunning:(BOOL)running {

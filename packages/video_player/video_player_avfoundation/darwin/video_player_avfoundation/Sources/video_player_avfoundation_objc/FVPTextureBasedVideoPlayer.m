@@ -161,7 +161,15 @@
 
   [self.playerLayer removeFromSuperlayer];
 
+  // Invalidate (not just pause) the display link and drop every reference to it. A paused link
+  // stays registered in the run loop and can still deliver a deferred callback during app
+  // termination; invalidating removes it from the run loop entirely. The frameUpdater holds a
+  // strong reference too, so clear that as well, and mark it disposed so any callback that is
+  // already in flight becomes a no-op.
+  _frameUpdater.disposed = YES;
   _displayLink.running = NO;
+  [_displayLink invalidate];
+  _frameUpdater.displayLink = nil;
   _displayLink = nil;
 }
 
@@ -242,6 +250,17 @@
     self.framesCount++;
 
     dispatch_async(dispatch_get_main_queue(), ^{
+      // Same guards as -[FVPFrameUpdater displayLinkFired]: don't message the engine once disposed,
+      // or while backgrounded, to avoid an EXC_BAD_ACCESS in -[FlutterEngine textureFrameAvailable:]
+      // during teardown.
+      if (self.frameUpdater.disposed) {
+        return;
+      }
+#if TARGET_OS_IOS
+      if (UIApplication.sharedApplication.applicationState == UIApplicationStateBackground) {
+        return;
+      }
+#endif
       [self.frameUpdater.registry textureFrameAvailable:self.frameUpdater.textureIdentifier];
     });
   }
