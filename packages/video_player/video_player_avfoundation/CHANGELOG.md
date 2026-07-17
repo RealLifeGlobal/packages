@@ -1,3 +1,8 @@
+## 2.11.0
+
+* Implements `setPreventsDisplaySleepDuringVideoPlayback` using
+  `AVPlayer.preventsDisplaySleepDuringVideoPlayback`.
+
 ## 2.10.1
 
 * Fixes a remaining `EXC_BAD_ACCESS` in `-[FlutterEngine textureFrameAvailable:]` (via

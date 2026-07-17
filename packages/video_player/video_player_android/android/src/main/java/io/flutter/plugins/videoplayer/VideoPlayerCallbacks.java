@@ -32,4 +32,6 @@ public interface VideoPlayerCallbacks {
   void onVideoQualityChanged(int width, int height, int bitrate, @Nullable String codec);
 
   void onDecoderChanged(@NonNull String decoderName, boolean isHardwareAccelerated);
+
+  void onVideoTrackChanged(@Nullable String selectedTrackId);
 }

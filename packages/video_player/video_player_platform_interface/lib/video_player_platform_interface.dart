@@ -654,7 +654,11 @@ class VideoPlayerOptions {
     this.preventsDisplaySleepDuringVideoPlayback = true,
     this.webOptions,
     this.androidOptions,
-  });
+    this.backBufferDurationMs,
+  }) : assert(
+         backBufferDurationMs == null || backBufferDurationMs >= 0,
+         'backBufferDurationMs must be zero or greater',
+       );
 
   /// Set this to true to keep playing video in background, when app goes in background.
   /// The default value is false.
@@ -679,6 +683,12 @@ class VideoPlayerOptions {
 
   /// Additional Android controls
   final AndroidVideoPlayerOptions? androidOptions;
+
+  /// The duration, in milliseconds, of media to retain in the buffer prior to
+  /// the current playback position.
+  ///
+  /// Ignored on platforms that do not support controlling the back buffer.
+  final int? backBufferDurationMs;
 }
 
 /// Android-specific video player options for configuring ExoPlayer behavior.
@@ -801,6 +811,7 @@ class VideoCreationOptions {
     required this.dataSource,
     required this.viewType,
     this.androidOptions,
+    this.videoPlayerOptions,
   });
 
   /// The data source used to create the player.
@@ -811,6 +822,9 @@ class VideoCreationOptions {
 
   /// Android-specific options for configuring ExoPlayer behavior.
   final AndroidVideoPlayerOptions? androidOptions;
+
+  /// Additional configuration options for the video player.
+  final VideoPlayerOptions? videoPlayerOptions;
 }
 
 /// Represents an audio track in a video with its metadata.

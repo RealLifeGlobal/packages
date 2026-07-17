@@ -12,6 +12,7 @@ import androidx.annotation.RestrictTo;
 import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
+import androidx.media3.exoplayer.DefaultLoadControl;
 import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
 import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
@@ -145,6 +146,22 @@ public final class TextureVideoPlayer extends VideoPlayer implements SurfaceProd
           new ExoPlayer.Builder(context, renderersFactory)
               .setTrackSelector(trackSelector)
               .setMediaSourceFactory(mediaSourceFactory);
+      if (options.backBufferDurationMs != null) {
+        if (options.backBufferDurationMs < 0) {
+          throw new IllegalArgumentException("backBufferDurationMs must be at least 0");
+        }
+        if (options.backBufferDurationMs > 0) {
+          // Clamp the value to ensure it fits within the int range expected by
+          // DefaultLoadControl.
+          int backBufferInt =
+              (int) Math.min(options.backBufferDurationMs.longValue(), Integer.MAX_VALUE);
+          DefaultLoadControl loadControl =
+              new DefaultLoadControl.Builder()
+                  .setBackBuffer(backBufferInt, /* retainBackBufferFromKeyframe= */ true)
+                  .build();
+          builder.setLoadControl(loadControl);
+        }
+      }
       return builder.build();
     };
   }

@@ -249,6 +249,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
 
     long id = nextPlayerIdentifier++;
     final String streamInstance = Long.toString(id);
+    VideoPlayerOptions playerOptions = new VideoPlayerOptions(sharedOptions);
+    playerOptions.backBufferDurationMs = options.getBackBufferDurationMs();
+
     VideoPlayer videoPlayer =
         PlatformViewVideoPlayer.create(
             flutterState.applicationContext,
@@ -269,6 +272,9 @@ public class VideoPlayerPlugin implements FlutterPlugin, ActivityAware, AndroidV
     long id = nextPlayerIdentifier++;
     final String streamInstance = Long.toString(id);
     TextureRegistry.SurfaceProducer handle = flutterState.textureRegistry.createSurfaceProducer();
+    VideoPlayerOptions playerOptions = new VideoPlayerOptions(sharedOptions);
+    playerOptions.backBufferDurationMs = options.getBackBufferDurationMs();
+
     VideoPlayer videoPlayer =
         TextureVideoPlayer.create(
             flutterState.applicationContext,

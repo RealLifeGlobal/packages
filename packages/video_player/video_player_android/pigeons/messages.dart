@@ -84,6 +84,16 @@ class PipStateEvent extends PlatformVideoEvent {
   late final int windowHeight;
 }
 
+/// Sent when video tracks change.
+///
+/// This includes when the selected video track changes after calling selectVideoTrack.
+/// Corresponds to ExoPlayer's onTracksChanged.
+class VideoTrackChangedEvent extends PlatformVideoEvent {
+  /// The ID of the newly selected video track, if any.
+  /// Will be null when auto quality selection is enabled.
+  late final String? selectedTrackId;
+}
+
 /// Information passed to the platform view creation.
 class PlatformVideoViewCreationParams {
   const PlatformVideoViewCreationParams({required this.playerId});
@@ -97,7 +107,6 @@ class CreationOptions {
   PlatformVideoFormat? formatHint;
   Map<String, String> httpHeaders;
   String? userAgent;
-
   /// Max retries per segment/load error before escalating.
   /// Null means use ExoPlayer's default (5).
   int? maxLoadRetries;
@@ -105,6 +114,8 @@ class CreationOptions {
   /// Max player-level recovery attempts for fatal network errors.
   /// Null means use the default (3).
   int? maxPlayerRecoveryAttempts;
+
+  int? backBufferDurationMs;
 }
 
 class TexturePlayerIds {
@@ -237,6 +248,39 @@ class PlatformVideoQuality {
   bool isSelected;
 }
 
+/// Raw video track data from ExoPlayer Format objects.
+class ExoPlayerVideoTrackData {
+  ExoPlayerVideoTrackData({
+    required this.groupIndex,
+    required this.trackIndex,
+    this.label,
+    required this.isSelected,
+    this.bitrate,
+    this.width,
+    this.height,
+    this.frameRate,
+    this.codec,
+  });
+
+  int groupIndex;
+  int trackIndex;
+  String? label;
+  bool isSelected;
+  int? bitrate;
+  int? width;
+  int? height;
+  double? frameRate;
+  String? codec;
+}
+
+/// Container for raw video track data from Android ExoPlayer.
+class NativeVideoTrackData {
+  NativeVideoTrackData({this.exoPlayerTracks});
+
+  /// ExoPlayer-based tracks
+  List<ExoPlayerVideoTrackData>? exoPlayerTracks;
+}
+
 @HostApi()
 abstract class AndroidVideoPlayerApi {
   void initialize();
@@ -319,6 +363,16 @@ abstract class VideoPlayerInstanceApi {
 
   /// Forces a specific video decoder by name, or null for automatic.
   void setVideoDecoder(String? decoderName);
+
+  /// Gets the available video tracks for the video.
+  NativeVideoTrackData getVideoTracks();
+
+  /// Selects which video track is chosen for playback from its [groupIndex] and [trackIndex].
+  void selectVideoTrack(int groupIndex, int trackIndex);
+
+  /// Enables automatic video quality selection, allowing the player to adaptively
+  /// switch between available video tracks based on network conditions.
+  void enableAutoVideoQuality();
 }
 
 @EventChannelApi()

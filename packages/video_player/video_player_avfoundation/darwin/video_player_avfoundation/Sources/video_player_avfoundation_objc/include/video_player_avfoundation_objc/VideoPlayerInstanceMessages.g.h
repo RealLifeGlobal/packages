@@ -128,7 +128,10 @@ NSObject<FlutterMessageCodec> *FVPGetVideoPlayerInstanceMessagesCodec(void);
 - (void)getVideoTracks:(void (^)(FVPNativeVideoTrackData *_Nullable, FlutterError *_Nullable))completion;
 /// Selects a video track by setting preferredPeakBitRate.
 /// Pass 0 to enable auto quality selection.
-- (void)selectVideoTrackWithBitrate:(NSInteger)bitrate error:(FlutterError *_Nullable *_Nonnull)error;
+- (void)selectVideoTrackWithBitrate:(NSInteger)bitrate
+                              error:(FlutterError *_Nullable *_Nonnull)error;
+- (void)setPreventsDisplaySleepDuringVideoPlayback:(BOOL)preventsDisplaySleepDuringVideoPlayback
+                                             error:(FlutterError *_Nullable *_Nonnull)error;
 @end
 
 extern void SetUpFVPVideoPlayerInstanceApi(id<FlutterBinaryMessenger> binaryMessenger, NSObject<FVPVideoPlayerInstanceApi> *_Nullable api);

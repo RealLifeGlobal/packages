@@ -1,6 +1,18 @@
-## 2.12.0
+## 2.14.0
 
 * Adds `VideoPlayerViewportGuard` widget to automatically detach Android platform views when they scroll off-screen or transition to a hidden tab, solving overlapping and clipping glitches.
+
+## 2.13.0
+
+* Adds `preventsDisplaySleepDuringVideoPlayback` to `VideoPlayerOptions` and
+  `VideoPlayerValue`, and `setPreventsDisplaySleepDuringVideoPlayback` to
+  `VideoPlayerController`, to control whether the display sleeps during playback
+  on iOS and macOS.
+
+## 2.12.0
+
+* Passes `backBufferDurationMs` from `VideoPlayerOptions` to the underlying platform interface.
+* Updates minimum supported SDK version to Flutter 3.38/Dart 3.10.
 
 ## 2.11.1
 
