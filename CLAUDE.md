@@ -71,8 +71,22 @@ dart run pigeon --input pigeons/video_player_instance_messages.dart   # silent =
 There are two pigeon inputs here (`video_player_instance_messages.dart`,
 `video_player_plugin_messages.dart`); regenerate whichever conflicted.
 
-## Verify before committing
-
+- **Compile the native code — `dart analyze` does NOT cover Java/Kotlin/ObjC/Swift,
+  and a *clean* auto-merge (no conflict markers, no analyzer error) can still be
+  invalid.** This bit us once: both sides inserted `VideoPlayerOptions` construction
+  into the same `VideoPlayerPlugin.java` method and git textually merged them,
+  producing a duplicate `playerOptions` local that only `javac` caught at build time.
+  Always compile the Android module:
+  ```sh
+  cd packages/video_player/video_player_android/example/android
+  ANDROID_HOME=~/Library/Android/sdk ./gradlew :video_player_android:compileReleaseJavaWithJavac
+  ```
+  For iOS/macOS, `flutter build ios --no-codesign` (or `flutter build macos`); the
+  ObjC-protocol grep below is a cheaper partial check, not a substitute.
+- **Watch auto-merged files, not just conflicted ones.** `git show --stat <mergecommit>`
+  lists every file the merge touched; the ones *without* conflicts (both sides edited
+  nearby lines, git resolved silently) are where semantic breakage hides. The compile
+  step above is what actually catches them.
 - `dart analyze lib/` in every touched Dart package (`video_player`,
   `_avfoundation`, `_web`, `_platform_interface`). Expect "No issues found!".
 - Confirm the native ObjC implements every protocol method the regenerated header
