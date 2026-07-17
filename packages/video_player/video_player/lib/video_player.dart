@@ -175,6 +175,9 @@ class VideoPlayerValue {
     this.currentQuality,
     this.decoderName,
     this.isDecoderHardwareAccelerated,
+    this.forcedDecoderName,
+    this.maxBitrate,
+    this.maxResolution,
     this.preventsDisplaySleepDuringVideoPlayback = true,
   });
 
@@ -189,6 +192,7 @@ class VideoPlayerValue {
   /// workaround for this issue https://github.com/dart-lang/language/issues/2009
   static const String _defaultErrorDescription = 'defaultErrorDescription';
   static const Size _defaultPipSize = Size(-1, -1);
+  static const String _defaultForcedDecoderName = '_defaultForcedDecoderName';
 
   /// The total duration of the video.
   ///
@@ -273,6 +277,21 @@ class VideoPlayerValue {
   /// Currently only reported on Android.
   final bool? isDecoderHardwareAccelerated;
 
+  /// The decoder forced via [VideoPlayerController.setVideoDecoder], or null
+  /// when using automatic decoder selection.
+  ///
+  /// This is the *requested* decoder; the *active* decoder is [decoderName].
+  /// Currently only supported on Android.
+  final String? forcedDecoderName;
+
+  /// The maximum video bitrate in bits per second set via
+  /// [VideoPlayerController.setMaxBitrate], or null when unconstrained.
+  final int? maxBitrate;
+
+  /// The maximum video resolution set via
+  /// [VideoPlayerController.setMaxResolution], or null when unconstrained.
+  final Size? maxResolution;
+
   /// Whether the screen is prevented from sleeping during video playback.
   ///
   /// Defaults to `true`.
@@ -335,6 +354,9 @@ class VideoPlayerValue {
     platform_interface.VideoQuality? currentQuality,
     String? decoderName,
     bool? isDecoderHardwareAccelerated,
+    String? forcedDecoderName = _defaultForcedDecoderName,
+    int? maxBitrate,
+    Size? maxResolution,
     bool? preventsDisplaySleepDuringVideoPlayback,
   }) {
     return VideoPlayerValue(
@@ -363,6 +385,11 @@ class VideoPlayerValue {
       decoderName: decoderName ?? this.decoderName,
       isDecoderHardwareAccelerated:
           isDecoderHardwareAccelerated ?? this.isDecoderHardwareAccelerated,
+      forcedDecoderName: forcedDecoderName != _defaultForcedDecoderName
+          ? forcedDecoderName
+          : this.forcedDecoderName,
+      maxBitrate: maxBitrate ?? this.maxBitrate,
+      maxResolution: maxResolution ?? this.maxResolution,
       preventsDisplaySleepDuringVideoPlayback:
           preventsDisplaySleepDuringVideoPlayback ?? this.preventsDisplaySleepDuringVideoPlayback,
     );
@@ -392,6 +419,9 @@ class VideoPlayerValue {
         'currentQuality: $currentQuality, '
         'decoderName: $decoderName, '
         'isDecoderHardwareAccelerated: $isDecoderHardwareAccelerated, '
+        'forcedDecoderName: $forcedDecoderName, '
+        'maxBitrate: $maxBitrate, '
+        'maxResolution: $maxResolution, '
         'preventsDisplaySleepDuringVideoPlayback: $preventsDisplaySleepDuringVideoPlayback)';
   }
 
@@ -422,6 +452,9 @@ class VideoPlayerValue {
           currentQuality == other.currentQuality &&
           decoderName == other.decoderName &&
           isDecoderHardwareAccelerated == other.isDecoderHardwareAccelerated &&
+          forcedDecoderName == other.forcedDecoderName &&
+          maxBitrate == other.maxBitrate &&
+          maxResolution == other.maxResolution &&
           preventsDisplaySleepDuringVideoPlayback == other.preventsDisplaySleepDuringVideoPlayback;
 
   @override
@@ -449,6 +482,9 @@ class VideoPlayerValue {
       currentQuality,
       decoderName,
       isDecoderHardwareAccelerated,
+      forcedDecoderName,
+      maxBitrate,
+      maxResolution,
       preventsDisplaySleepDuringVideoPlayback,
     ),
   );
@@ -1302,6 +1338,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
       return;
     }
     await _videoPlayerPlatform.setMaxBitrate(_playerId, maxBitrateBps);
+    value = value.copyWith(maxBitrate: maxBitrateBps);
   }
 
   /// Sets the maximum video resolution.
@@ -1316,6 +1353,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
       return;
     }
     await _videoPlayerPlatform.setMaxResolution(_playerId, width, height);
+    value = value.copyWith(maxResolution: Size(width.toDouble(), height.toDouble()));
   }
 
   // Decoder selection methods
@@ -1354,6 +1392,7 @@ class VideoPlayerController extends ValueNotifier<VideoPlayerValue> {
       return;
     }
     await _videoPlayerPlatform.setVideoDecoder(_playerId, decoderName);
+    value = value.copyWith(forcedDecoderName: decoderName);
   }
 
   bool get _isDisposedOrNotInitialized => _isDisposed || !value.isInitialized;
