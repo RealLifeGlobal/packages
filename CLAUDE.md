@@ -94,3 +94,44 @@ There are two pigeon inputs here (`video_player_instance_messages.dart`,
 - **Upstream generic fixes.** Bug fixes that aren't fork-specific (e.g. the iOS
   backgrounding-crash fix) are worth a PR to `flutter/packages`; once merged upstream they
   stop being a fork-only diff and stop conflicting.
+
+---
+
+# Implementing a fork feature: robust, not lazy
+
+Worked cautionary example: our `setPreventsDisplaySleep` (feat/ios-prevents-display-sleep) vs
+upstream's `setPreventsDisplaySleepDuringVideoPlayback` (#11225), which shipped the same capability
+far more completely. "Lazy" = the thinnest platform-channel passthrough that compiles. "Robust" =
+a first-class property of the state model, config surface, and existing idioms — then tested and
+documented. Before calling a `video_player` feature done, apply all of these:
+
+- **Put the property in the state model, not just a passthrough.** A new player property must be a
+  field on `VideoPlayerValue`, threaded through `copyWith` / `==` / `hashCode` / `toString`.
+  If you can't read back what you set, it isn't done. (Ours never touched `value`.)
+
+- **Make it configurable at construction, not runtime-only.** If it's a player setting, add it to
+  `VideoPlayerOptions` with a default and **apply it on every data-source creation path**
+  (asset / network / file / contentUri) — not only via a later setter. (Ours had no option.)
+
+- **Follow the existing controller idiom exactly.** Mutations are
+  `setX(...) { value = value.copyWith(x: ...); await _applyX(); }`, where `_applyX` guards
+  `_isDisposedOrNotInitialized` and calls the platform (see `setLooping`, `setVolume`). Don't invent
+  a one-off shape. (Ours guarded in the public setter and skipped the value/`_apply` steps.)
+
+- **Match the platform-interface contract; fully model any richer semantic.** Upstream uses a
+  non-nullable `bool` with a documented default + a **no-op default impl** for platforms that don't
+  support it. A richer semantic is fine *if modeled everywhere*: our `bool?` (`null` = "don't cast
+  AVPlayer's vote, defer to the reference-counted `SafeWakelock`") is a real requirement but it lived
+  only in the ObjC setter. A tri-state only the native layer understands is the lazy version of a
+  good idea — put it in value/options/docs/tests too, or don't add it.
+
+- **Ship the "boring" parts — they are the feature.** Unit test (at least the default value + a
+  state round-trip), `CHANGELOG.md` entry, `version:` bump, and dartdoc on every new public member.
+  Skipping these is the signature of a lazy change.
+
+- **Align with upstream's name/shape — check before inventing.** This fork merges upstream forever,
+  so a parallel, differently-named API for something upstream also implements *guarantees* a future
+  duplicate (exactly what `setPreventsDisplaySleep` vs `setPreventsDisplaySleepDuringVideoPlayback`
+  now creates on `dev`). Before adding a public API, grep the platform interface and search
+  `flutter/packages` issues/PRs; if upstream has or plans it, adopt its name and signature and add
+  only the fork-specific delta.
