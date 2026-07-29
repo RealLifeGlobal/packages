@@ -42,6 +42,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @NonNull protected final VideoPlayerCallbacks videoPlayerEvents;
   @Nullable protected final SurfaceProducer surfaceProducer;
   @Nullable private DisposeHandler disposeHandler;
+  @Nullable private ExoPlayerEventListener exoPlayerEventListener;
   @NonNull protected ExoPlayer exoPlayer;
 
   // Set to true once dispose() has been called. Public API methods that touch
@@ -63,7 +64,6 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @NonNull protected final VideoPlayerOptions options;
 
   // Stored listener references for removal during ExoPlayer rebuild.
-  @NonNull private ExoPlayerEventListener exoPlayerEventListener;
   @NonNull private AnalyticsListener analyticsListener;
 
   // Decoder tracking.
@@ -795,6 +795,10 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
     mainHandler.removeCallbacksAndMessages(null);
     if (disposeHandler != null) {
       disposeHandler.onDispose();
+    }
+    if (exoPlayerEventListener != null) {
+      exoPlayerEventListener.dispose();
+      exoPlayerEventListener = null;
     }
     exoPlayer.release();
   }
