@@ -9,6 +9,8 @@ import androidx.annotation.Nullable;
 
 public class VideoPlayerOptions {
   public boolean mixWithOthers;
+  public int maxLoadRetries = 5;
+  public int maxPlayerRecoveryAttempts = 3;
 
   /**
    * The duration of the back buffer in milliseconds, used to configure ExoPlayer's load control.
@@ -20,6 +22,8 @@ public class VideoPlayerOptions {
   /** Copy constructor to ensure all options are reliably copied. */
   public VideoPlayerOptions(@NonNull VideoPlayerOptions other) {
     this.mixWithOthers = other.mixWithOthers;
+    this.maxLoadRetries = other.maxLoadRetries;
+    this.maxPlayerRecoveryAttempts = other.maxPlayerRecoveryAttempts;
     this.backBufferDurationMs = other.backBufferDurationMs;
   }
 }

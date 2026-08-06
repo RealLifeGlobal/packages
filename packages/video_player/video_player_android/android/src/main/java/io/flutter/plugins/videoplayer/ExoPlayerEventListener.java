@@ -30,6 +30,8 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
       };
   protected final ExoPlayer exoPlayer;
   protected final VideoPlayerCallbacks events;
+  private final int maxPlayerRecoveryAttempts;
+  private int recoveryAttemptCount = 0;
 
   protected enum RotationDegrees {
     ROTATE_0(0),
@@ -58,9 +60,12 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
   }
 
   public ExoPlayerEventListener(
-      @NonNull ExoPlayer exoPlayer, @NonNull VideoPlayerCallbacks events) {
+      @NonNull ExoPlayer exoPlayer,
+      @NonNull VideoPlayerCallbacks events,
+      int maxPlayerRecoveryAttempts) {
     this.exoPlayer = exoPlayer;
     this.events = events;
+    this.maxPlayerRecoveryAttempts = maxPlayerRecoveryAttempts;
   }
 
   protected abstract void sendInitialized();
@@ -107,6 +112,7 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
         break;
       case Player.STATE_READY:
         platformState = PlatformPlaybackState.READY;
+        recoveryAttemptCount = 0;
         maybeSendInitialized();
         break;
       case Player.STATE_ENDED:
@@ -133,9 +139,25 @@ public abstract class ExoPlayerEventListener implements Player.Listener {
       // https://exoplayer.dev/live-streaming.html#behindlivewindowexception-and-error_code_behind_live_window
       exoPlayer.seekToDefaultPosition();
       exoPlayer.prepare();
+    } else if (isTransientNetworkError(error)) {
+      recoveryAttemptCount++;
+      if (recoveryAttemptCount <= maxPlayerRecoveryAttempts) {
+        // Transient network errors (e.g. airplane mode, connection timeout) are
+        // recoverable. Re-prepare the player so it retries when network returns.
+        exoPlayer.prepare();
+      } else {
+        events.onError("VideoError", "Video player had error " + error, null);
+      }
     } else {
       events.onError("VideoError", "Video player had error " + error, null);
     }
+  }
+
+  private boolean isTransientNetworkError(@NonNull PlaybackException error) {
+    int code = error.errorCode;
+    return code == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED
+        || code == PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT
+        || code == PlaybackException.ERROR_CODE_IO_UNSPECIFIED;
   }
 
   @Override

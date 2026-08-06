@@ -38,7 +38,7 @@ public class TextureExoPlayerEventListenerTest {
   public void
       onPlaybackStateChangedReadySendInitialized_whenSurfaceProducerHandlesCropAndRotation() {
     TextureExoPlayerEventListener eventListener =
-        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, true);
+        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, true, 3);
     VideoSize size = new VideoSize(800, 400, 0);
     when(mockExoPlayer.getVideoSize()).thenReturn(size);
     when(mockExoPlayer.getDuration()).thenReturn(10L);
@@ -51,7 +51,7 @@ public class TextureExoPlayerEventListenerTest {
   public void
       onPlaybackStateChangedReadySendInitializedWithRotationCorrectionAndWidthAndHeightSwap_whenSurfaceProducerDoesNotHandleCropAndRotation() {
     TextureExoPlayerEventListener eventListener =
-        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, false);
+        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, false, 3);
     VideoSize size = new VideoSize(800, 400, 0);
     int rotationCorrection = 90;
     Format videoFormat = new Format.Builder().setRotationDegrees(rotationCorrection).build();
@@ -68,7 +68,7 @@ public class TextureExoPlayerEventListenerTest {
   public void
       onPlaybackStateChangedReadyInPortraitMode90DegreesDoesNotSwapWidthAndHeight_whenSurfaceProducerHandlesCropAndRotation() {
     TextureExoPlayerEventListener eventListener =
-        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, true);
+        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, true, 3);
     VideoSize size = new VideoSize(800, 400, 0);
 
     when(mockExoPlayer.getVideoSize()).thenReturn(size);
@@ -82,7 +82,7 @@ public class TextureExoPlayerEventListenerTest {
   public void
       onPlaybackStateChangedReadyInPortraitMode90DegreesSwapWidthAndHeight_whenSurfaceProducerDoesNotHandleCropAndRotation() {
     TextureExoPlayerEventListener eventListener =
-        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, false);
+        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, false, 3);
     VideoSize size = new VideoSize(800, 400, 0);
     int rotationCorrection = 90;
     Format videoFormat = new Format.Builder().setRotationDegrees(rotationCorrection).build();
@@ -99,7 +99,7 @@ public class TextureExoPlayerEventListenerTest {
   public void
       onPlaybackStateChangedReadyInPortraitMode270DegreesDoesNotSwapWidthAndHeight_whenSurfaceProducerHandlesCropAndRotation() {
     TextureExoPlayerEventListener eventListener =
-        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, true);
+        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, true, 3);
     VideoSize size = new VideoSize(800, 400, 0);
     when(mockExoPlayer.getVideoSize()).thenReturn(size);
     when(mockExoPlayer.getDuration()).thenReturn(10L);
@@ -112,7 +112,7 @@ public class TextureExoPlayerEventListenerTest {
   public void
       onPlaybackStateChangedReadyInPortraitMode270DegreesDoesNotSwapWidthAndHeight_whenSurfaceProducerDoesNotHandleCropAndRotation() {
     TextureExoPlayerEventListener eventListener =
-        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, false);
+        new TextureExoPlayerEventListener(mockExoPlayer, mockCallbacks, false, 3);
     VideoSize size = new VideoSize(800, 400, 0);
     int rotationCorrection = 270;
     Format videoFormat = new Format.Builder().setRotationDegrees(rotationCorrection).build();

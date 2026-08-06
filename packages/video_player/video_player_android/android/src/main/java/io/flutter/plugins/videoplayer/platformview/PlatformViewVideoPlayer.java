@@ -11,7 +11,9 @@ import androidx.annotation.VisibleForTesting;
 import androidx.media3.common.MediaItem;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.DefaultLoadControl;
+import androidx.media3.exoplayer.DefaultRenderersFactory;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy;
 import io.flutter.plugins.videoplayer.ExoPlayerEventListener;
 import io.flutter.plugins.videoplayer.VideoAsset;
 import io.flutter.plugins.videoplayer.VideoPlayer;
@@ -24,15 +26,23 @@ import io.flutter.view.TextureRegistry.SurfaceProducer;
  * displaying the video in the app.
  */
 public class PlatformViewVideoPlayer extends VideoPlayer {
+  // Stored for ExoPlayer rebuild (decoder switching).
+  @NonNull private final Context context;
+  @NonNull private final VideoAsset asset;
+
   // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
   @UnstableApi
   @VisibleForTesting
   public PlatformViewVideoPlayer(
+      @NonNull Context context,
+      @NonNull VideoAsset asset,
       @NonNull VideoPlayerCallbacks events,
       @NonNull MediaItem mediaItem,
       @NonNull VideoPlayerOptions options,
       @NonNull ExoPlayerProvider exoPlayerProvider) {
     super(events, mediaItem, options, /* surfaceProducer */ null, exoPlayerProvider);
+    this.context = context;
+    this.asset = asset;
   }
 
   /**
@@ -53,40 +63,72 @@ public class PlatformViewVideoPlayer extends VideoPlayer {
       @NonNull VideoAsset asset,
       @NonNull VideoPlayerOptions options) {
     return new PlatformViewVideoPlayer(
+        context,
+        asset,
         events,
         asset.getMediaItem(),
         options,
-        () -> {
-          ExoPlayer.Builder builder = new ExoPlayer.Builder(context);
-          if (options.backBufferDurationMs != null) {
-            if (options.backBufferDurationMs < 0) {
-              throw new IllegalArgumentException("backBufferDurationMs must be at least 0");
-            }
-            if (options.backBufferDurationMs > 0) {
-              // Clamp the value to ensure it fits within the int range expected by
-              // DefaultLoadControl.
-              int backBufferInt =
-                  (int) Math.min(options.backBufferDurationMs.longValue(), Integer.MAX_VALUE);
-              DefaultLoadControl loadControl =
-                  new DefaultLoadControl.Builder()
-                      .setBackBuffer(backBufferInt, /* retainBackBufferFromKeyframe= */ true)
-                      .build();
-              builder.setLoadControl(loadControl);
-            }
-          }
-          androidx.media3.exoplayer.trackselection.DefaultTrackSelector trackSelector =
-              new androidx.media3.exoplayer.trackselection.DefaultTrackSelector(context);
-          builder
-              .setTrackSelector(trackSelector)
-              .setMediaSourceFactory(asset.getMediaSourceFactory(context));
-          return builder.build();
-        });
+        buildExoPlayerProvider(context, asset, options, null));
   }
 
   @NonNull
   @Override
   protected ExoPlayerEventListener createExoPlayerEventListener(
       @NonNull ExoPlayer exoPlayer, @Nullable SurfaceProducer surfaceProducer) {
-    return new PlatformViewExoPlayerEventListener(exoPlayer, videoPlayerEvents);
+    return new PlatformViewExoPlayerEventListener(exoPlayer, videoPlayerEvents,
+        maxPlayerRecoveryAttempts);
+  }
+
+  @UnstableApi
+  @NonNull
+  @Override
+  protected ExoPlayerProvider createExoPlayerProvider(@Nullable String forcedDecoderName) {
+    return buildExoPlayerProvider(context, asset, options, forcedDecoderName);
+  }
+
+  @UnstableApi
+  @NonNull
+  private static ExoPlayerProvider buildExoPlayerProvider(
+      @NonNull Context context,
+      @NonNull VideoAsset asset,
+      @NonNull VideoPlayerOptions options,
+      @Nullable String forcedDecoderName) {
+    return () -> {
+      androidx.media3.exoplayer.trackselection.DefaultTrackSelector trackSelector =
+          new androidx.media3.exoplayer.trackselection.DefaultTrackSelector(context);
+      androidx.media3.exoplayer.source.MediaSource.Factory mediaSourceFactory =
+          asset.getMediaSourceFactory(context);
+      if (mediaSourceFactory
+          instanceof androidx.media3.exoplayer.source.DefaultMediaSourceFactory) {
+        ((androidx.media3.exoplayer.source.DefaultMediaSourceFactory) mediaSourceFactory)
+            .setLoadErrorHandlingPolicy(
+                new DefaultLoadErrorHandlingPolicy(options.maxLoadRetries));
+      }
+      DefaultRenderersFactory renderersFactory =
+          new DefaultRenderersFactory(context)
+              .setEnableDecoderFallback(true)
+              .setMediaCodecSelector(createSelectorForDecoder(forcedDecoderName));
+      ExoPlayer.Builder builder =
+          new ExoPlayer.Builder(context, renderersFactory)
+              .setTrackSelector(trackSelector)
+              .setMediaSourceFactory(mediaSourceFactory);
+      if (options.backBufferDurationMs != null) {
+        if (options.backBufferDurationMs < 0) {
+          throw new IllegalArgumentException("backBufferDurationMs must be at least 0");
+        }
+        if (options.backBufferDurationMs > 0) {
+          // Clamp the value to ensure it fits within the int range expected by
+          // DefaultLoadControl.
+          int backBufferInt =
+              (int) Math.min(options.backBufferDurationMs.longValue(), Integer.MAX_VALUE);
+          DefaultLoadControl loadControl =
+              new DefaultLoadControl.Builder()
+                  .setBackBuffer(backBufferInt, /* retainBackBufferFromKeyframe= */ true)
+                  .build();
+          builder.setLoadControl(loadControl);
+        }
+      }
+      return builder.build();
+    };
   }
 }

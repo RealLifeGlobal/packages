@@ -3,10 +3,27 @@
 * Implements `setPreventsDisplaySleepDuringVideoPlayback` using
   `AVPlayer.preventsDisplaySleepDuringVideoPlayback`.
 
+## 2.10.1
+
+* Fixes a remaining `EXC_BAD_ACCESS` in `-[FlutterEngine textureFrameAvailable:]` (via
+  `-[FVPFrameUpdater displayLinkFired]`) that survived the 2.10.0 background fix, most often for
+  "Designed for iPad" apps on Apple Silicon Macs and reproducible by quitting the app while a video
+  player is alive. The texture display link is now invalidated (removed from the run loop), not just
+  paused, when a player is disposed; the display-link callback captures the frame updater weakly so
+  it can't outlive the player; and frame delivery is skipped once the player is disposed or while the
+  application is backgrounded, which is robust to the background lifecycle notification not being
+  delivered on that platform.
+
 ## 2.10.0
 
 * Implements `getVideoTracks()` and `selectVideoTrack()` methods for video track (quality) selection using AVFoundation.
 * Video track selection requires iOS 15+ / macOS 12+ for HLS streams.
+* Fixes fatal crashes that occurred when the app was backgrounded while a video player was alive,
+  most frequently for "Designed for iPad" apps running on Apple Silicon Macs. Pauses the texture
+  display link while backgrounded to avoid an `EXC_BAD_ACCESS` in
+  `-[FlutterEngine textureFrameAvailable:]`, and guards event-channel delivery against a torn-down
+  engine to avoid an uncaught `NSInternalInconsistencyException` ("Sending a message before the
+  FlutterEngine has been run.").
 
 ## 2.9.7
 

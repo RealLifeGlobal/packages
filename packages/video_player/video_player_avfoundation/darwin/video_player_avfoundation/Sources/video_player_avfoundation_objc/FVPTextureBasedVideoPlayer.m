@@ -5,6 +5,10 @@
 #import "./include/video_player_avfoundation_objc/FVPTextureBasedVideoPlayer.h"
 #import "./include/video_player_avfoundation_objc/FVPTextureBasedVideoPlayer_Test.h"
 
+#if TARGET_OS_IOS
+@import UIKit;
+#endif
+
 @interface FVPTextureBasedVideoPlayer ()
 // The updater that drives callbacks to the engine to indicate that a new frame is ready.
 @property(nonatomic) FVPFrameUpdater *frameUpdater;
@@ -53,18 +57,59 @@
     // video streams (not just iOS 16).  (https://github.com/flutter/flutter/issues/109116). An
     // invisible AVPlayerLayer is used to overwrite the protection of pixel buffers in those streams
     // for issue #1, and restore the correct width and height for issue #2.
-    _playerLayer = [AVPlayerLayer playerLayerWithPlayer:self.player];
 #if TARGET_OS_IOS
     CALayer *flutterLayer = viewProvider.viewController.view.layer;
 #else
     CALayer *flutterLayer = viewProvider.view.layer;
 #endif
     [flutterLayer addSublayer:self.playerLayer];
+    // A non-zero frame is required for AVPictureInPictureController to accept the layer.
+    // PiP uses the video's natural size from AVPlayerItem, not these bounds.
+    self.playerLayer.frame = CGRectMake(0, 0, 1, 1);
+
+#if TARGET_OS_IOS
+    // Pause the display link while the app is backgrounded. The display link drives texture frame
+    // delivery into the Flutter engine (displayLinkFired -> textureFrameAvailable, and the
+    // copyPixelBuffer re-enqueue), but the engine can be torn down while the app is backgrounded —
+    // most notably for "Designed for iPad" apps running on Apple Silicon Macs, where the app keeps
+    // ticking while its window is hidden. Delivering frames to a freed engine causes an
+    // EXC_BAD_ACCESS in -[FlutterEngine textureFrameAvailable:]. There is nothing visible to update
+    // while backgrounded anyway; background audio and PiP render from the AVPlayer/AVPlayerLayer and
+    // are unaffected by pausing texture updates.
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(fvp_applicationDidEnterBackground:)
+                                                 name:UIApplicationDidEnterBackgroundNotification
+                                               object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self
+                                             selector:@selector(fvp_applicationWillEnterForeground:)
+                                                 name:UIApplicationWillEnterForegroundNotification
+                                               object:nil];
+#endif
   }
   return self;
 }
 
+#if TARGET_OS_IOS
+- (void)fvp_applicationDidEnterBackground:(NSNotification *)notification {
+  _displayLink.running = NO;
+}
+
+- (void)fvp_applicationWillEnterForeground:(NSNotification *)notification {
+  // Restore the display link to the state implied by the current play/pause and waiting-for-frame
+  // state. No-op if the player has already been disposed (displayLink is nil).
+  [self updatePlayingState];
+}
+#endif
+
 - (void)dealloc {
+#if TARGET_OS_IOS
+  [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                  name:UIApplicationDidEnterBackgroundNotification
+                                                object:nil];
+  [[NSNotificationCenter defaultCenter] removeObserver:self
+                                                  name:UIApplicationWillEnterForegroundNotification
+                                                object:nil];
+#endif
   CVBufferRelease(_latestPixelBuffer);
 }
 
@@ -116,7 +161,15 @@
 
   [self.playerLayer removeFromSuperlayer];
 
+  // Invalidate (not just pause) the display link and drop every reference to it. A paused link
+  // stays registered in the run loop and can still deliver a deferred callback during app
+  // termination; invalidating removes it from the run loop entirely. The frameUpdater holds a
+  // strong reference too, so clear that as well, and mark it disposed so any callback that is
+  // already in flight becomes a no-op.
+  _frameUpdater.disposed = YES;
   _displayLink.running = NO;
+  [_displayLink invalidate];
+  _frameUpdater.displayLink = nil;
   _displayLink = nil;
 }
 
@@ -197,6 +250,17 @@
     self.framesCount++;
 
     dispatch_async(dispatch_get_main_queue(), ^{
+      // Same guards as -[FVPFrameUpdater displayLinkFired]: don't message the engine once disposed,
+      // or while backgrounded, to avoid an EXC_BAD_ACCESS in -[FlutterEngine textureFrameAvailable:]
+      // during teardown.
+      if (self.frameUpdater.disposed) {
+        return;
+      }
+#if TARGET_OS_IOS
+      if (UIApplication.sharedApplication.applicationState == UIApplicationStateBackground) {
+        return;
+      }
+#endif
       [self.frameUpdater.registry textureFrameAvailable:self.frameUpdater.textureIdentifier];
     });
   }

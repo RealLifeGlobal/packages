@@ -1,3 +1,8 @@
+## 2.14.0
+
+* Adds `VideoPlayerViewportGuard` widget to automatically detach Android platform views when they scroll off-screen or transition to a hidden tab, solving overlapping and clipping glitches.
+* Exposes the ABR/decoder constraints on `VideoPlayerValue`: `maxBitrate` and `maxResolution` (set via `setMaxBitrate`/`setMaxResolution`) and `forcedDecoderName` (set via `setVideoDecoder`), so the values you set are readable back from the controller.
+
 ## 2.13.0
 
 * Adds `preventsDisplaySleepDuringVideoPlayback` to `VideoPlayerOptions` and

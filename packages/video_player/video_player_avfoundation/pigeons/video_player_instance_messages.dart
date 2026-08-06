@@ -37,6 +37,21 @@ class MediaSelectionAudioTrackData {
   String? commonMetadataTitle;
 }
 
+/// Represents a video quality variant (resolution/bitrate combination).
+class PlatformVideoQuality {
+  PlatformVideoQuality({
+    required this.width,
+    required this.height,
+    required this.bitrate,
+    required this.isSelected,
+  });
+  int width;
+  int height;
+  int bitrate;
+  String? codec;
+  bool isSelected;
+}
+
 /// Video track data from AVAssetVariant (HLS variants) for iOS 15+.
 class MediaSelectionVideoTrackData {
   MediaSelectionVideoTrackData({
@@ -112,6 +127,16 @@ abstract class VideoPlayerInstanceApi {
   List<MediaSelectionAudioTrackData> getAudioTracks();
   @ObjCSelector('selectAudioTrackAtIndex:')
   void selectAudioTrack(int trackIndex);
+
+  // ABR (Adaptive Bitrate) control methods
+  @ObjCSelector('getAvailableQualities')
+  List<PlatformVideoQuality> getAvailableQualities();
+  @ObjCSelector('getCurrentQuality')
+  PlatformVideoQuality? getCurrentQuality();
+  @ObjCSelector('setMaxBitrate:')
+  void setMaxBitrate(int maxBitrateBps);
+  @ObjCSelector('setMaxResolutionWidth:height:')
+  void setMaxResolution(int width, int height);
 
   /// Gets the available video tracks for the video.
   @async

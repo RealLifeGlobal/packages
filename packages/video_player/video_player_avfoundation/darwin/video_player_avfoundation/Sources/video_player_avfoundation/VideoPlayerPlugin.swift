@@ -172,8 +172,11 @@ public final class VideoPlayerPlugin: NSObject, FlutterPlugin, AVFoundationVideo
   func createTexturePlayer(options creationOptions: CreationOptions) throws -> TexturePlayerIds {
     let item = try playerItem(with: creationOptions)
     let frameUpdater = FVPFrameUpdater(registry: textureRegistry)
-    let displayLink = displayLinkFactory.displayLink(with: viewProvider) {
-      frameUpdater.displayLinkFired()
+    // Capture the frame updater weakly so the display link's run-loop registration can't keep the
+    // updater (and the whole player graph) alive past disposal. A callback that fires after the
+    // player is gone then becomes a no-op instead of messaging a torn-down engine.
+    let displayLink = displayLinkFactory.displayLink(with: viewProvider) { [weak frameUpdater] in
+      frameUpdater?.displayLinkFired()
     }
 
     let player = FVPTextureBasedVideoPlayer(
@@ -237,6 +240,67 @@ public final class VideoPlayerPlugin: NSObject, FlutterPlugin, AVFoundationVideo
       return nil
     }
     return URL(fileURLWithPath: validPath).absoluteString
+  }
+
+  // MARK: - Picture-in-Picture
+
+  func isPipSupported() throws -> Bool {
+    return FVPPipController.isPipSupported()
+  }
+
+  func enterPip(playerId: Int64) throws {
+    playersByIdentifier[playerId]?.enterPip()
+  }
+
+  func exitPip(playerId: Int64) throws {
+    playersByIdentifier[playerId]?.exitPip()
+  }
+
+  func isPipActive(playerId: Int64) throws -> Bool {
+    return playersByIdentifier[playerId]?.isPipActive() ?? false
+  }
+
+  func setAutoPip(playerId: Int64, enabled: Bool) throws {
+    playersByIdentifier[playerId]?.setAutoPipEnabled(enabled)
+  }
+
+  // MARK: - Background playback
+
+  func enableBackgroundPlayback(playerId: Int64, mediaInfo: PlatformMediaInfo?) throws {
+    playersByIdentifier[playerId]?.enableBackgroundPlayback(
+      withTitle: mediaInfo?.title,
+      artist: mediaInfo?.artist,
+      artworkUrl: mediaInfo?.artworkUrl,
+      durationMs: mediaInfo?.durationMs.map { NSNumber(value: $0) },
+      skipBackwardIntervalMs: mediaInfo?.skipBackwardIntervalMs.map { NSNumber(value: $0) },
+      skipForwardIntervalMs: mediaInfo?.skipForwardIntervalMs.map { NSNumber(value: $0) }
+    )
+  }
+
+  func disableBackgroundPlayback(playerId: Int64) throws {
+    playersByIdentifier[playerId]?.disableBackgroundPlayback()
+  }
+
+  // MARK: - Cache control (no-ops on iOS/macOS until a future HLS cache phase)
+
+  func setCacheMaxSize(_ maxSizeBytes: Int64) throws {
+    // No-op on Apple platforms.
+  }
+
+  func clearCache() throws {
+    // No-op on Apple platforms.
+  }
+
+  func getCacheSize() throws -> Int64 {
+    return 0
+  }
+
+  func isCacheEnabled() throws -> Bool {
+    return false
+  }
+
+  func setCacheEnabled(_ enabled: Bool) throws {
+    // No-op on Apple platforms.
   }
 
   // MARK: - Private

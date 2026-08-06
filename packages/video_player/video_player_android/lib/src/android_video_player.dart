@@ -103,6 +103,8 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
       httpHeaders: httpHeaders,
       userAgent: userAgent,
       formatHint: formatHint,
+      maxLoadRetries: options.androidOptions?.maxLoadRetries,
+      maxPlayerRecoveryAttempts: options.androidOptions?.maxPlayerRecoveryAttempts,
       backBufferDurationMs: options.videoPlayerOptions?.backBufferDurationMs,
     );
 
@@ -251,6 +253,154 @@ class AndroidVideoPlayer extends VideoPlayerPlatform {
   }
 
   @override
+  Future<bool> isPipSupported() async {
+    return _api.isPipSupported();
+  }
+
+  @override
+  Future<void> enterPip(int playerId) {
+    return _api.enterPip(playerId);
+  }
+
+  @override
+  Future<void> exitPip(int playerId) async {
+    // Android PiP is exited by tapping the full-screen button in PiP window
+    // or by the system. There's no programmatic exit API needed.
+  }
+
+  @override
+  Future<bool> isPipActive(int playerId) async {
+    return _api.isPipActive();
+  }
+
+  @override
+  Future<void> setAutoEnterPip(int playerId, bool enabled) {
+    return _api.setAutoEnterPip(enabled);
+  }
+
+  @override
+  Future<void> enableBackgroundPlayback(int playerId, {MediaInfo? mediaInfo}) {
+    final PlatformMediaInfo? pigeonMediaInfo = mediaInfo != null
+        ? PlatformMediaInfo(
+            title: mediaInfo.title,
+            artist: mediaInfo.artist,
+            artworkUrl: mediaInfo.artworkUrl,
+            durationMs: mediaInfo.durationMs,
+            skipBackwardIntervalMs: mediaInfo.skipBackwardIntervalMs,
+            skipForwardIntervalMs: mediaInfo.skipForwardIntervalMs,
+          )
+        : null;
+    return _api.enableBackgroundPlayback(playerId, pigeonMediaInfo);
+  }
+
+  @override
+  Future<void> disableBackgroundPlayback(int playerId) {
+    return _api.disableBackgroundPlayback(playerId);
+  }
+
+  // Cache control methods
+
+  @override
+  Future<void> setCacheMaxSize(int maxSizeBytes) {
+    return _api.setCacheMaxSize(maxSizeBytes);
+  }
+
+  @override
+  Future<void> clearCache() {
+    return _api.clearCache();
+  }
+
+  @override
+  Future<int> getCacheSize() async {
+    return _api.getCacheSize();
+  }
+
+  @override
+  Future<bool> isCacheEnabled() async {
+    return _api.isCacheEnabled();
+  }
+
+  @override
+  Future<void> setCacheEnabled(bool enabled) {
+    return _api.setCacheEnabled(enabled);
+  }
+
+  // ABR control methods
+
+  @override
+  Future<List<VideoQuality>> getAvailableQualities(int playerId) async {
+    final List<PlatformVideoQuality> qualities = await _playerWith(
+      id: playerId,
+    ).getAvailableQualities();
+    return qualities
+        .map(
+          (PlatformVideoQuality q) => VideoQuality(
+            width: q.width,
+            height: q.height,
+            bitrate: q.bitrate,
+            codec: q.codec,
+            isSelected: q.isSelected,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<VideoQuality?> getCurrentQuality(int playerId) async {
+    final PlatformVideoQuality? q = await _playerWith(id: playerId).getCurrentQuality();
+    if (q == null) {
+      return null;
+    }
+    return VideoQuality(
+      width: q.width,
+      height: q.height,
+      bitrate: q.bitrate,
+      codec: q.codec,
+      isSelected: q.isSelected,
+    );
+  }
+
+  @override
+  Future<void> setMaxBitrate(int playerId, int maxBitrateBps) {
+    return _playerWith(id: playerId).setMaxBitrate(maxBitrateBps);
+  }
+
+  @override
+  Future<void> setMaxResolution(int playerId, int width, int height) {
+    return _playerWith(id: playerId).setMaxResolution(width, height);
+  }
+
+  // Decoder selection methods
+
+  @override
+  Future<List<VideoDecoderInfo>> getAvailableDecoders(int playerId) async {
+    final List<PlatformVideoDecoder> decoders = await _playerWith(
+      id: playerId,
+    ).getAvailableDecoders();
+    return decoders
+        .map(
+          (PlatformVideoDecoder d) => VideoDecoderInfo(
+            name: d.name,
+            mimeType: d.mimeType,
+            isHardwareAccelerated: d.isHardwareAccelerated,
+            isSoftwareOnly: d.isSoftwareOnly,
+            isSelected: d.isSelected,
+          ),
+        )
+        .toList();
+  }
+
+  @override
+  Future<String?> getCurrentDecoderName(int playerId) {
+    return _playerWith(id: playerId).getCurrentDecoderName();
+  }
+
+  @override
+  Future<void> setVideoDecoder(int playerId, String? decoderName) {
+    return _playerWith(id: playerId).setVideoDecoder(decoderName);
+  }
+
+  @override
   Future<List<VideoTrack>> getVideoTracks(int playerId) async {
     final NativeVideoTrackData nativeData = await _playerWith(id: playerId).getVideoTracks();
     final tracks = <VideoTrack>[];
@@ -334,6 +484,7 @@ class _PlayerInstance {
   final StreamController<VideoEvent> _eventStreamController = StreamController<VideoEvent>();
   late final StreamSubscription<dynamic> _eventSubscription;
   bool _isDisposed = false;
+  bool _isInitialized = false;
   Timer? _bufferPollingTimer;
   int _lastBufferPosition = -1;
   bool _isBuffering = false;
@@ -377,6 +528,34 @@ class _PlayerInstance {
 
   Future<NativeAudioTrackData> getAudioTracks() {
     return _api.getAudioTracks();
+  }
+
+  Future<List<PlatformVideoQuality>> getAvailableQualities() {
+    return _api.getAvailableQualities();
+  }
+
+  Future<PlatformVideoQuality?> getCurrentQuality() {
+    return _api.getCurrentQuality();
+  }
+
+  Future<void> setMaxBitrate(int maxBitrateBps) {
+    return _api.setMaxBitrate(maxBitrateBps);
+  }
+
+  Future<void> setMaxResolution(int width, int height) {
+    return _api.setMaxResolution(width, height);
+  }
+
+  Future<List<PlatformVideoDecoder>> getAvailableDecoders() {
+    return _api.getAvailableDecoders();
+  }
+
+  Future<String?> getCurrentDecoderName() {
+    return _api.getCurrentDecoderName();
+  }
+
+  Future<void> setVideoDecoder(String? decoderName) {
+    return _api.setVideoDecoder(decoderName);
   }
 
   Future<void> selectAudioTrack(String trackId) async {
@@ -504,11 +683,16 @@ class _PlayerInstance {
       );
       // Trigger an extra buffer position check, so that clients have an
       // accurate reporting of the current buffering state.
-      _api.getBufferedPosition().then((int position) {
-        if (!_isDisposed) {
-          _updateBufferPosition(position);
-        }
-      });
+      _api
+          .getBufferedPosition()
+          .then((int position) {
+            if (!_isDisposed) {
+              _updateBufferPosition(position);
+            }
+          })
+          .catchError((_) {
+            // Can fail briefly during ExoPlayer rebuild (decoder switch).
+          });
     }
   }
 
@@ -529,6 +713,11 @@ class _PlayerInstance {
   void _onStreamEvent(PlatformVideoEvent event) {
     switch (event) {
       case InitializationEvent _:
+        if (_isInitialized) {
+          // Suppress duplicate init events (e.g. after decoder switch rebuild).
+          break;
+        }
+        _isInitialized = true;
         _eventStreamController.add(
           VideoEvent(
             eventType: VideoEventType.initialized,
@@ -541,9 +730,13 @@ class _PlayerInstance {
         // Start polling for buffer position, since there is no buffer position
         // event to listen to.
         _bufferPollingTimer = Timer.periodic(const Duration(seconds: 1), (Timer timer) async {
-          final int position = await _api.getBufferedPosition();
-          if (!_isDisposed) {
-            _updateBufferPosition(position);
+          try {
+            final int position = await _api.getBufferedPosition();
+            if (!_isDisposed) {
+              _updateBufferPosition(position);
+            }
+          } catch (_) {
+            // Can fail briefly during ExoPlayer rebuild (decoder switch).
           }
         });
       case IsPlayingStateEvent _:
@@ -580,6 +773,36 @@ class _PlayerInstance {
         if (_audioTrackSelectionCompleter != null && !_audioTrackSelectionCompleter!.isCompleted) {
           _audioTrackSelectionCompleter!.complete();
         }
+      case PipStateEvent _:
+        _eventStreamController.add(
+          VideoEvent(
+            eventType: VideoEventType.pipStateChanged,
+            isPipActive: event.isInPipMode,
+            wasDismissed: event.wasDismissed,
+            pipWindowSize: Size(event.windowWidth.toDouble(), event.windowHeight.toDouble()),
+          ),
+        );
+      case VideoQualityChangedEvent _:
+        _eventStreamController.add(
+          VideoEvent(
+            eventType: VideoEventType.qualityChanged,
+            quality: VideoQuality(
+              width: event.width,
+              height: event.height,
+              bitrate: event.bitrate,
+              codec: event.codec,
+              isSelected: true,
+            ),
+          ),
+        );
+      case DecoderChangedEvent _:
+        _eventStreamController.add(
+          VideoEvent(
+            eventType: VideoEventType.decoderChanged,
+            decoderName: event.decoderName,
+            isDecoderHardwareAccelerated: event.isHardwareAccelerated,
+          ),
+        );
       case VideoTrackChangedEvent _:
         // Complete the video track selection completer only if:
         // 1. A completer exists (we're waiting for an explicit selection)

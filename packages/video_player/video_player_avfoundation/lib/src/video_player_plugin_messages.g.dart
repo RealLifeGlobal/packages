@@ -211,6 +211,85 @@ class TexturePlayerIds {
   int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
 }
 
+/// Metadata shown on the lock screen / Control Center while background
+/// playback is enabled for a player.
+class PlatformMediaInfo {
+  PlatformMediaInfo({
+    required this.title,
+    this.artist,
+    this.artworkUrl,
+    this.durationMs,
+    this.skipBackwardIntervalMs,
+    this.skipForwardIntervalMs,
+  });
+
+  String title;
+
+  String? artist;
+
+  String? artworkUrl;
+
+  int? durationMs;
+
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip backward" button. When null, the platform falls back to a default
+  /// (15s) chosen to match the in-app rewind control.
+  int? skipBackwardIntervalMs;
+
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip forward" button. When null, the platform falls back to a default
+  /// (30s) chosen to match the in-app fast-forward control.
+  int? skipForwardIntervalMs;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      title,
+      artist,
+      artworkUrl,
+      durationMs,
+      skipBackwardIntervalMs,
+      skipForwardIntervalMs,
+    ];
+  }
+
+  Object encode() {
+    return _toList();
+  }
+
+  static PlatformMediaInfo decode(Object result) {
+    result as List<Object?>;
+    return PlatformMediaInfo(
+      title: result[0]! as String,
+      artist: result[1] as String?,
+      artworkUrl: result[2] as String?,
+      durationMs: result[3] as int?,
+      skipBackwardIntervalMs: result[4] as int?,
+      skipForwardIntervalMs: result[5] as int?,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PlatformMediaInfo || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(title, other.title) &&
+        _deepEquals(artist, other.artist) &&
+        _deepEquals(artworkUrl, other.artworkUrl) &&
+        _deepEquals(durationMs, other.durationMs) &&
+        _deepEquals(skipBackwardIntervalMs, other.skipBackwardIntervalMs) &&
+        _deepEquals(skipForwardIntervalMs, other.skipForwardIntervalMs);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+}
+
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
   @override
@@ -227,6 +306,9 @@ class _PigeonCodec extends StandardMessageCodec {
     } else if (value is TexturePlayerIds) {
       buffer.putUint8(131);
       writeValue(buffer, value.encode());
+    } else if (value is PlatformMediaInfo) {
+      buffer.putUint8(132);
+      writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
     }
@@ -241,6 +323,8 @@ class _PigeonCodec extends StandardMessageCodec {
         return CreationOptions.decode(readValue(buffer)!);
       case 131:
         return TexturePlayerIds.decode(readValue(buffer)!);
+      case 132:
+        return PlatformMediaInfo.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
     }
@@ -345,5 +429,199 @@ class AVFoundationVideoPlayerApi {
       isNullValid: true,
     );
     return pigeonVar_replyValue as String?;
+  }
+
+  Future<bool> isPipSupported() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.isPipSupported$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as bool;
+  }
+
+  Future<void> enterPip(int playerId) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.enterPip$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[playerId]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+  }
+
+  Future<void> exitPip(int playerId) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.exitPip$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[playerId]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+  }
+
+  Future<bool> isPipActive(int playerId) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.isPipActive$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[playerId]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as bool;
+  }
+
+  Future<void> setAutoPip(int playerId, bool enabled) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.setAutoPip$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[
+      playerId,
+      enabled,
+    ]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+  }
+
+  Future<void> enableBackgroundPlayback(int playerId, PlatformMediaInfo? mediaInfo) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.enableBackgroundPlayback$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[
+      playerId,
+      mediaInfo,
+    ]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+  }
+
+  Future<void> disableBackgroundPlayback(int playerId) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.disableBackgroundPlayback$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[playerId]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+  }
+
+  Future<void> setCacheMaxSize(int maxSizeBytes) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.setCacheMaxSize$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[maxSizeBytes]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+  }
+
+  Future<void> clearCache() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.clearCache$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+  }
+
+  Future<int> getCacheSize() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.getCacheSize$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as int;
+  }
+
+  Future<bool> isCacheEnabled() async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.isCacheEnabled$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+      pigeonVar_replyList,
+      pigeonVar_channelName,
+      isNullValid: false,
+    );
+    return pigeonVar_replyValue! as bool;
+  }
+
+  Future<void> setCacheEnabled(bool enabled) async {
+    final pigeonVar_channelName =
+        'dev.flutter.pigeon.video_player_avfoundation.AVFoundationVideoPlayerApi.setCacheEnabled$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[enabled]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
   }
 }

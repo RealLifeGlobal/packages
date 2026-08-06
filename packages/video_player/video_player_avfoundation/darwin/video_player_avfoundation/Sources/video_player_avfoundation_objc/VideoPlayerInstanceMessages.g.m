@@ -23,8 +23,7 @@ static BOOL __attribute__((unused)) FLTPigeonDeepEquals(id _Nullable a, id _Null
     return a == [NSNull null];
   }
   if ([a isKindOfClass:[NSNumber class]] && [b isKindOfClass:[NSNumber class]]) {
-    return
-        [a isEqual:b] || (isnan([(NSNumber *)a doubleValue]) && isnan([(NSNumber *)b doubleValue]));
+    return [a isEqual:b] || (isnan([(NSNumber *)a doubleValue]) && isnan([(NSNumber *)b doubleValue]));
   }
   if ([a isKindOfClass:[NSArray class]] && [b isKindOfClass:[NSArray class]]) {
     NSArray *arrayA = (NSArray *)a;
@@ -123,6 +122,12 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
 - (NSArray<id> *)toList;
 @end
 
+@interface FVPPlatformVideoQuality ()
++ (FVPPlatformVideoQuality *)fromList:(NSArray<id> *)list;
++ (nullable FVPPlatformVideoQuality *)nullableFromList:(NSArray<id> *)list;
+- (NSArray<id> *)toList;
+@end
+
 @interface FVPMediaSelectionVideoTrackData ()
 + (FVPMediaSelectionVideoTrackData *)fromList:(NSArray<id> *)list;
 + (nullable FVPMediaSelectionVideoTrackData *)nullableFromList:(NSArray<id> *)list;
@@ -142,12 +147,12 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
 @end
 
 @implementation FVPMediaSelectionAudioTrackData
-+ (instancetype)makeWithIndex:(NSInteger)index
-                  displayName:(nullable NSString *)displayName
-                 languageCode:(nullable NSString *)languageCode
-                   isSelected:(BOOL)isSelected
-          commonMetadataTitle:(nullable NSString *)commonMetadataTitle {
-  FVPMediaSelectionAudioTrackData *pigeonResult = [[FVPMediaSelectionAudioTrackData alloc] init];
++ (instancetype)makeWithIndex:(NSInteger )index
+    displayName:(nullable NSString *)displayName
+    languageCode:(nullable NSString *)languageCode
+    isSelected:(BOOL )isSelected
+    commonMetadataTitle:(nullable NSString *)commonMetadataTitle {
+  FVPMediaSelectionAudioTrackData* pigeonResult = [[FVPMediaSelectionAudioTrackData alloc] init];
   pigeonResult.index = index;
   pigeonResult.displayName = displayName;
   pigeonResult.languageCode = languageCode;
@@ -184,10 +189,7 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
     return NO;
   }
   FVPMediaSelectionAudioTrackData *other = (FVPMediaSelectionAudioTrackData *)object;
-  return self.index == other.index && FLTPigeonDeepEquals(self.displayName, other.displayName) &&
-         FLTPigeonDeepEquals(self.languageCode, other.languageCode) &&
-         self.isSelected == other.isSelected &&
-         FLTPigeonDeepEquals(self.commonMetadataTitle, other.commonMetadataTitle);
+  return self.index == other.index && FLTPigeonDeepEquals(self.displayName, other.displayName) && FLTPigeonDeepEquals(self.languageCode, other.languageCode) && self.isSelected == other.isSelected && FLTPigeonDeepEquals(self.commonMetadataTitle, other.commonMetadataTitle);
 }
 
 - (NSUInteger)hash {
@@ -201,16 +203,73 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
 }
 @end
 
+@implementation FVPPlatformVideoQuality
++ (instancetype)makeWithWidth:(NSInteger )width
+    height:(NSInteger )height
+    bitrate:(NSInteger )bitrate
+    codec:(nullable NSString *)codec
+    isSelected:(BOOL )isSelected {
+  FVPPlatformVideoQuality* pigeonResult = [[FVPPlatformVideoQuality alloc] init];
+  pigeonResult.width = width;
+  pigeonResult.height = height;
+  pigeonResult.bitrate = bitrate;
+  pigeonResult.codec = codec;
+  pigeonResult.isSelected = isSelected;
+  return pigeonResult;
+}
++ (FVPPlatformVideoQuality *)fromList:(NSArray<id> *)list {
+  FVPPlatformVideoQuality *pigeonResult = [[FVPPlatformVideoQuality alloc] init];
+  pigeonResult.width = [GetNullableObjectAtIndex(list, 0) integerValue];
+  pigeonResult.height = [GetNullableObjectAtIndex(list, 1) integerValue];
+  pigeonResult.bitrate = [GetNullableObjectAtIndex(list, 2) integerValue];
+  pigeonResult.codec = GetNullableObjectAtIndex(list, 3);
+  pigeonResult.isSelected = [GetNullableObjectAtIndex(list, 4) boolValue];
+  return pigeonResult;
+}
++ (nullable FVPPlatformVideoQuality *)nullableFromList:(NSArray<id> *)list {
+  return (list) ? [FVPPlatformVideoQuality fromList:list] : nil;
+}
+- (NSArray<id> *)toList {
+  return @[
+    @(self.width),
+    @(self.height),
+    @(self.bitrate),
+    self.codec ?: [NSNull null],
+    @(self.isSelected),
+  ];
+}
+- (BOOL)isEqual:(id)object {
+  if (self == object) {
+    return YES;
+  }
+  if (![object isKindOfClass:[self class]]) {
+    return NO;
+  }
+  FVPPlatformVideoQuality *other = (FVPPlatformVideoQuality *)object;
+  return self.width == other.width && self.height == other.height && self.bitrate == other.bitrate && FLTPigeonDeepEquals(self.codec, other.codec) && self.isSelected == other.isSelected;
+}
+
+- (NSUInteger)hash {
+  NSUInteger result = [self class].hash;
+  result = result * 31 + @(self.width).hash;
+  result = result * 31 + @(self.height).hash;
+  result = result * 31 + @(self.bitrate).hash;
+  result = result * 31 + FLTPigeonDeepHash(self.codec);
+  result = result * 31 + @(self.isSelected).hash;
+  return result;
+}
+@end
+
 @implementation FVPMediaSelectionVideoTrackData
-+ (instancetype)makeWithVariantIndex:(NSInteger)variantIndex
-                               label:(nullable NSString *)label
-                             bitrate:(nullable NSNumber *)bitrate
-                               width:(nullable NSNumber *)width
-                              height:(nullable NSNumber *)height
-                           frameRate:(nullable NSNumber *)frameRate
-                               codec:(nullable NSString *)codec
-                          isSelected:(BOOL)isSelected {
-  FVPMediaSelectionVideoTrackData *pigeonResult = [[FVPMediaSelectionVideoTrackData alloc] init];
++ (instancetype)makeWithVariantIndex:(NSInteger )variantIndex
+    label:(nullable NSString *)label
+    bitrate:(nullable NSNumber *)bitrate
+    width:(nullable NSNumber *)width
+    height:(nullable NSNumber *)height
+    frameRate:(nullable NSNumber *)frameRate
+    codec:(nullable NSString *)codec
+    isSelected:(BOOL )isSelected {
+  FVPMediaSelectionVideoTrackData* pigeonResult = [[FVPMediaSelectionVideoTrackData alloc] init];
   pigeonResult.variantIndex = variantIndex;
   pigeonResult.label = label;
   pigeonResult.bitrate = bitrate;
@@ -256,12 +315,7 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
     return NO;
   }
   FVPMediaSelectionVideoTrackData *other = (FVPMediaSelectionVideoTrackData *)object;
-  return self.variantIndex == other.variantIndex && FLTPigeonDeepEquals(self.label, other.label) &&
-         FLTPigeonDeepEquals(self.bitrate, other.bitrate) &&
-         FLTPigeonDeepEquals(self.width, other.width) &&
-         FLTPigeonDeepEquals(self.height, other.height) &&
-         FLTPigeonDeepEquals(self.frameRate, other.frameRate) &&
-         FLTPigeonDeepEquals(self.codec, other.codec) && self.isSelected == other.isSelected;
+  return self.variantIndex == other.variantIndex && FLTPigeonDeepEquals(self.label, other.label) && FLTPigeonDeepEquals(self.bitrate, other.bitrate) && FLTPigeonDeepEquals(self.width, other.width) && FLTPigeonDeepEquals(self.height, other.height) && FLTPigeonDeepEquals(self.frameRate, other.frameRate) && FLTPigeonDeepEquals(self.codec, other.codec) && self.isSelected == other.isSelected;
 }
 
 - (NSUInteger)hash {
@@ -279,14 +333,14 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
 @end
 
 @implementation FVPAssetVideoTrackData
-+ (instancetype)makeWithTrackId:(NSInteger)trackId
-                          label:(nullable NSString *)label
-                          width:(nullable NSNumber *)width
-                         height:(nullable NSNumber *)height
-                      frameRate:(nullable NSNumber *)frameRate
-                          codec:(nullable NSString *)codec
-                     isSelected:(BOOL)isSelected {
-  FVPAssetVideoTrackData *pigeonResult = [[FVPAssetVideoTrackData alloc] init];
++ (instancetype)makeWithTrackId:(NSInteger )trackId
+    label:(nullable NSString *)label
+    width:(nullable NSNumber *)width
+    height:(nullable NSNumber *)height
+    frameRate:(nullable NSNumber *)frameRate
+    codec:(nullable NSString *)codec
+    isSelected:(BOOL )isSelected {
+  FVPAssetVideoTrackData* pigeonResult = [[FVPAssetVideoTrackData alloc] init];
   pigeonResult.trackId = trackId;
   pigeonResult.label = label;
   pigeonResult.width = width;
@@ -329,11 +383,7 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
     return NO;
   }
   FVPAssetVideoTrackData *other = (FVPAssetVideoTrackData *)object;
-  return self.trackId == other.trackId && FLTPigeonDeepEquals(self.label, other.label) &&
-         FLTPigeonDeepEquals(self.width, other.width) &&
-         FLTPigeonDeepEquals(self.height, other.height) &&
-         FLTPigeonDeepEquals(self.frameRate, other.frameRate) &&
-         FLTPigeonDeepEquals(self.codec, other.codec) && self.isSelected == other.isSelected;
+  return self.trackId == other.trackId && FLTPigeonDeepEquals(self.label, other.label) && FLTPigeonDeepEquals(self.width, other.width) && FLTPigeonDeepEquals(self.height, other.height) && FLTPigeonDeepEquals(self.frameRate, other.frameRate) && FLTPigeonDeepEquals(self.codec, other.codec) && self.isSelected == other.isSelected;
 }
 
 - (NSUInteger)hash {
@@ -351,9 +401,8 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
 
 @implementation FVPNativeVideoTrackData
 + (instancetype)makeWithAssetTracks:(nullable NSArray<FVPAssetVideoTrackData *> *)assetTracks
-               mediaSelectionTracks:
-                   (nullable NSArray<FVPMediaSelectionVideoTrackData *> *)mediaSelectionTracks {
-  FVPNativeVideoTrackData *pigeonResult = [[FVPNativeVideoTrackData alloc] init];
+    mediaSelectionTracks:(nullable NSArray<FVPMediaSelectionVideoTrackData *> *)mediaSelectionTracks {
+  FVPNativeVideoTrackData* pigeonResult = [[FVPNativeVideoTrackData alloc] init];
   pigeonResult.assetTracks = assetTracks;
   pigeonResult.mediaSelectionTracks = mediaSelectionTracks;
   return pigeonResult;
@@ -381,8 +430,7 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
     return NO;
   }
   FVPNativeVideoTrackData *other = (FVPNativeVideoTrackData *)object;
-  return FLTPigeonDeepEquals(self.assetTracks, other.assetTracks) &&
-         FLTPigeonDeepEquals(self.mediaSelectionTracks, other.mediaSelectionTracks);
+  return FLTPigeonDeepEquals(self.assetTracks, other.assetTracks) && FLTPigeonDeepEquals(self.mediaSelectionTracks, other.mediaSelectionTracks);
 }
 
 - (NSUInteger)hash {
@@ -398,13 +446,15 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
 @implementation FVPVideoPlayerInstanceMessagesPigeonCodecReader
 - (nullable id)readValueOfType:(UInt8)type {
   switch (type) {
-    case 129:
+    case 129: 
       return [FVPMediaSelectionAudioTrackData fromList:[self readValue]];
-    case 130:
+    case 130: 
+      return [FVPPlatformVideoQuality fromList:[self readValue]];
+    case 131: 
       return [FVPMediaSelectionVideoTrackData fromList:[self readValue]];
-    case 131:
+    case 132: 
       return [FVPAssetVideoTrackData fromList:[self readValue]];
-    case 132:
+    case 133: 
       return [FVPNativeVideoTrackData fromList:[self readValue]];
     default:
       return [super readValueOfType:type];
@@ -419,14 +469,17 @@ static id GetNullableObjectAtIndex(NSArray<id> *array, NSInteger key) {
   if ([value isKindOfClass:[FVPMediaSelectionAudioTrackData class]]) {
     [self writeByte:129];
     [self writeValue:[value toList]];
-  } else if ([value isKindOfClass:[FVPMediaSelectionVideoTrackData class]]) {
+  } else if ([value isKindOfClass:[FVPPlatformVideoQuality class]]) {
     [self writeByte:130];
     [self writeValue:[value toList]];
-  } else if ([value isKindOfClass:[FVPAssetVideoTrackData class]]) {
+  } else if ([value isKindOfClass:[FVPMediaSelectionVideoTrackData class]]) {
     [self writeByte:131];
     [self writeValue:[value toList]];
-  } else if ([value isKindOfClass:[FVPNativeVideoTrackData class]]) {
+  } else if ([value isKindOfClass:[FVPAssetVideoTrackData class]]) {
     [self writeByte:132];
+    [self writeValue:[value toList]];
+  } else if ([value isKindOfClass:[FVPNativeVideoTrackData class]]) {
+    [self writeByte:133];
     [self writeValue:[value toList]];
   } else {
     [super writeValue:value];
@@ -449,36 +502,25 @@ NSObject<FlutterMessageCodec> *FVPGetVideoPlayerInstanceMessagesCodec(void) {
   static FlutterStandardMessageCodec *sSharedObject = nil;
   static dispatch_once_t sPred = 0;
   dispatch_once(&sPred, ^{
-    FVPVideoPlayerInstanceMessagesPigeonCodecReaderWriter *readerWriter =
-        [[FVPVideoPlayerInstanceMessagesPigeonCodecReaderWriter alloc] init];
+    FVPVideoPlayerInstanceMessagesPigeonCodecReaderWriter *readerWriter = [[FVPVideoPlayerInstanceMessagesPigeonCodecReaderWriter alloc] init];
     sSharedObject = [FlutterStandardMessageCodec codecWithReaderWriter:readerWriter];
   });
   return sSharedObject;
 }
-void SetUpFVPVideoPlayerInstanceApi(id<FlutterBinaryMessenger> binaryMessenger,
-                                    NSObject<FVPVideoPlayerInstanceApi> *api) {
+void SetUpFVPVideoPlayerInstanceApi(id<FlutterBinaryMessenger> binaryMessenger, NSObject<FVPVideoPlayerInstanceApi> *api) {
   SetUpFVPVideoPlayerInstanceApiWithSuffix(binaryMessenger, api, @"");
 }
 
-void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryMessenger,
-                                              NSObject<FVPVideoPlayerInstanceApi> *api,
-                                              NSString *messageChannelSuffix) {
-  messageChannelSuffix = messageChannelSuffix.length > 0
-                             ? [NSString stringWithFormat:@".%@", messageChannelSuffix]
-                             : @"";
+void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryMessenger, NSObject<FVPVideoPlayerInstanceApi> *api, NSString *messageChannelSuffix) {
+  messageChannelSuffix = messageChannelSuffix.length > 0 ? [NSString stringWithFormat: @".%@", messageChannelSuffix] : @"";
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.setLooping",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setLooping", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert(
-          [api respondsToSelector:@selector(setLooping:error:)],
-          @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(setLooping:error:)",
-          api);
+      NSCAssert([api respondsToSelector:@selector(setLooping:error:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(setLooping:error:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
         NSArray<id> *args = message;
         BOOL arg_looping = [GetNullableObjectAtIndex(args, 0) boolValue];
@@ -491,18 +533,13 @@ void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryM
     }
   }
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.setVolume",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setVolume", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert(
-          [api respondsToSelector:@selector(setVolume:error:)],
-          @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(setVolume:error:)",
-          api);
+      NSCAssert([api respondsToSelector:@selector(setVolume:error:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(setVolume:error:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
         NSArray<id> *args = message;
         double arg_volume = [GetNullableObjectAtIndex(args, 0) doubleValue];
@@ -515,18 +552,13 @@ void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryM
     }
   }
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.setPlaybackSpeed",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setPlaybackSpeed", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert([api respondsToSelector:@selector(setPlaybackSpeed:error:)],
-                @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to "
-                @"@selector(setPlaybackSpeed:error:)",
-                api);
+      NSCAssert([api respondsToSelector:@selector(setPlaybackSpeed:error:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(setPlaybackSpeed:error:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
         NSArray<id> *args = message;
         double arg_speed = [GetNullableObjectAtIndex(args, 0) doubleValue];
@@ -539,17 +571,13 @@ void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryM
     }
   }
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.play",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.play", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert([api respondsToSelector:@selector(playWithError:)],
-                @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(playWithError:)",
-                api);
+      NSCAssert([api respondsToSelector:@selector(playWithError:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(playWithError:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
         FlutterError *error;
         [api playWithError:&error];
@@ -560,16 +588,13 @@ void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryM
     }
   }
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.getPosition",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getPosition", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert([api respondsToSelector:@selector(position:)],
-                @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(position:)", api);
+      NSCAssert([api respondsToSelector:@selector(position:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(position:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
         FlutterError *error;
         NSNumber *output = [api position:&error];
@@ -580,42 +605,32 @@ void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryM
     }
   }
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.seekTo",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.seekTo", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert(
-          [api respondsToSelector:@selector(seekTo:completion:)],
-          @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(seekTo:completion:)",
-          api);
+      NSCAssert([api respondsToSelector:@selector(seekTo:completion:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(seekTo:completion:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
         NSArray<id> *args = message;
         NSInteger arg_position = [GetNullableObjectAtIndex(args, 0) integerValue];
-        [api seekTo:arg_position
-            completion:^(FlutterError *_Nullable error) {
-              callback(wrapResult(nil, error));
-            }];
+        [api seekTo:arg_position completion:^(FlutterError *_Nullable error) {
+          callback(wrapResult(nil, error));
+        }];
       }];
     } else {
       [channel setMessageHandler:nil];
     }
   }
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.pause",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.pause", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert([api respondsToSelector:@selector(pauseWithError:)],
-                @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(pauseWithError:)",
-                api);
+      NSCAssert([api respondsToSelector:@selector(pauseWithError:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(pauseWithError:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
         FlutterError *error;
         [api pauseWithError:&error];
@@ -626,18 +641,13 @@ void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryM
     }
   }
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.dispose",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.dispose", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert(
-          [api respondsToSelector:@selector(disposeWithError:)],
-          @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(disposeWithError:)",
-          api);
+      NSCAssert([api respondsToSelector:@selector(disposeWithError:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(disposeWithError:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
         FlutterError *error;
         [api disposeWithError:&error];
@@ -648,17 +658,13 @@ void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryM
     }
   }
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.getAudioTracks",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getAudioTracks", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert([api respondsToSelector:@selector(getAudioTracks:)],
-                @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(getAudioTracks:)",
-                api);
+      NSCAssert([api respondsToSelector:@selector(getAudioTracks:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(getAudioTracks:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
         FlutterError *error;
         NSArray<FVPMediaSelectionAudioTrackData *> *output = [api getAudioTracks:&error];
@@ -669,18 +675,13 @@ void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryM
     }
   }
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.selectAudioTrack",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.selectAudioTrack", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert([api respondsToSelector:@selector(selectAudioTrackAtIndex:error:)],
-                @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to "
-                @"@selector(selectAudioTrackAtIndex:error:)",
-                api);
+      NSCAssert([api respondsToSelector:@selector(selectAudioTrackAtIndex:error:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(selectAudioTrackAtIndex:error:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
         NSArray<id> *args = message;
         NSInteger arg_trackIndex = [GetNullableObjectAtIndex(args, 0) integerValue];
@@ -692,22 +693,90 @@ void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryM
       [channel setMessageHandler:nil];
     }
   }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getAvailableQualities", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(getAvailableQualities:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(getAvailableQualities:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        FlutterError *error;
+        NSArray<FVPPlatformVideoQuality *> *output = [api getAvailableQualities:&error];
+        callback(wrapResult(output, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getCurrentQuality", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(getCurrentQuality:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(getCurrentQuality:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        FlutterError *error;
+        FVPPlatformVideoQuality *output = [api getCurrentQuality:&error];
+        callback(wrapResult(output, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setMaxBitrate", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(setMaxBitrate:error:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(setMaxBitrate:error:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        NSArray<id> *args = message;
+        NSInteger arg_maxBitrateBps = [GetNullableObjectAtIndex(args, 0) integerValue];
+        FlutterError *error;
+        [api setMaxBitrate:arg_maxBitrateBps error:&error];
+        callback(wrapResult(nil, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
+  {
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setMaxResolution", messageChannelSuffix]
+        binaryMessenger:binaryMessenger
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+    if (api) {
+      NSCAssert([api respondsToSelector:@selector(setMaxResolutionWidth:height:error:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(setMaxResolutionWidth:height:error:)", api);
+      [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
+        NSArray<id> *args = message;
+        NSInteger arg_width = [GetNullableObjectAtIndex(args, 0) integerValue];
+        NSInteger arg_height = [GetNullableObjectAtIndex(args, 1) integerValue];
+        FlutterError *error;
+        [api setMaxResolutionWidth:arg_width height:arg_height error:&error];
+        callback(wrapResult(nil, error));
+      }];
+    } else {
+      [channel setMessageHandler:nil];
+    }
+  }
   /// Gets the available video tracks for the video.
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.getVideoTracks",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getVideoTracks", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert([api respondsToSelector:@selector(getVideoTracks:)],
-                @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(getVideoTracks:)",
-                api);
+      NSCAssert([api respondsToSelector:@selector(getVideoTracks:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(getVideoTracks:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
-        [api getVideoTracks:^(FVPNativeVideoTrackData *_Nullable output,
-                              FlutterError *_Nullable error) {
+        [api getVideoTracks:^(FVPNativeVideoTrackData *_Nullable output, FlutterError *_Nullable error) {
           callback(wrapResult(output, error));
         }];
       }];
@@ -718,18 +787,13 @@ void SetUpFVPVideoPlayerInstanceApiWithSuffix(id<FlutterBinaryMessenger> binaryM
   /// Selects a video track by setting preferredPeakBitRate.
   /// Pass 0 to enable auto quality selection.
   {
-    FlutterBasicMessageChannel *channel = [[FlutterBasicMessageChannel alloc]
-           initWithName:[NSString stringWithFormat:@"%@%@",
-                                                   @"dev.flutter.pigeon.video_player_avfoundation."
-                                                   @"VideoPlayerInstanceApi.selectVideoTrack",
-                                                   messageChannelSuffix]
+    FlutterBasicMessageChannel *channel =
+      [[FlutterBasicMessageChannel alloc]
+        initWithName:[NSString stringWithFormat:@"%@%@", @"dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.selectVideoTrack", messageChannelSuffix]
         binaryMessenger:binaryMessenger
-                  codec:FVPGetVideoPlayerInstanceMessagesCodec()];
+        codec:FVPGetVideoPlayerInstanceMessagesCodec()];
     if (api) {
-      NSCAssert([api respondsToSelector:@selector(selectVideoTrackWithBitrate:error:)],
-                @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to "
-                @"@selector(selectVideoTrackWithBitrate:error:)",
-                api);
+      NSCAssert([api respondsToSelector:@selector(selectVideoTrackWithBitrate:error:)], @"FVPVideoPlayerInstanceApi api (%@) doesn't respond to @selector(selectVideoTrackWithBitrate:error:)", api);
       [channel setMessageHandler:^(id _Nullable message, FlutterReply callback) {
         NSArray<id> *args = message;
         NSInteger arg_bitrate = [GetNullableObjectAtIndex(args, 0) integerValue];

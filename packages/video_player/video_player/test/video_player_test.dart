@@ -125,6 +125,45 @@ class FakeController extends ValueNotifier<VideoPlayerValue> implements VideoPla
     return true;
   }
 
+  @override
+  Future<bool> get isPipSupported async => false;
+
+  @override
+  Future<void> enterPip() async {}
+
+  @override
+  Future<void> exitPip() async {}
+
+  @override
+  Future<void> setAutoEnterPip(bool enabled) async {}
+
+  @override
+  Future<void> enableBackgroundPlayback({MediaInfo? mediaInfo}) async {}
+
+  @override
+  Future<void> disableBackgroundPlayback() async {}
+
+  @override
+  Future<List<VideoQuality>> getAvailableQualities() async => <VideoQuality>[];
+
+  @override
+  Future<VideoQuality?> getCurrentQuality() async => null;
+
+  @override
+  Future<void> setMaxBitrate(int maxBitrateBps) async {}
+
+  @override
+  Future<void> setMaxResolution(int width, int height) async {}
+
+  @override
+  Future<List<VideoDecoderInfo>> getAvailableDecoders() async => <VideoDecoderInfo>[];
+
+  @override
+  Future<String?> getCurrentDecoderName() async => null;
+
+  @override
+  Future<void> setVideoDecoder(String? decoderName) async {}
+
   String? selectedAudioTrackId;
 }
 
@@ -224,6 +263,61 @@ void main() {
     WidgetsBinding.instance.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
     expect(controller.value.isPlaying, true);
   }
+
+  group('cache control', () {
+    test('setCacheMaxSize forwards to the platform', () async {
+      await VideoPlayerController.setCacheMaxSize(1024);
+      expect(fakeVideoPlayerPlatform.calls, contains('setCacheMaxSize'));
+      expect(fakeVideoPlayerPlatform.cacheMaxSize, 1024);
+    });
+
+    test('setCacheEnabled and isCacheEnabled round-trip through the platform', () async {
+      await VideoPlayerController.setCacheEnabled(true);
+      expect(await VideoPlayerController.isCacheEnabled(), true);
+      expect(
+        fakeVideoPlayerPlatform.calls,
+        containsAllInOrder(<String>['setCacheEnabled', 'isCacheEnabled']),
+      );
+    });
+
+    test('clearCache resets the reported cache size', () async {
+      fakeVideoPlayerPlatform.cacheSize = 500;
+      await VideoPlayerController.clearCache();
+      expect(await VideoPlayerController.getCacheSize(), 0);
+    });
+  });
+
+  group('ABR/decoder state', () {
+    test('setMaxBitrate stores the ceiling in value', () async {
+      final controller = VideoPlayerController.networkUrl(_localhostUri);
+      addTearDown(controller.dispose);
+      await controller.initialize();
+
+      await controller.setMaxBitrate(2000000);
+      expect(controller.value.maxBitrate, 2000000);
+    });
+
+    test('setMaxResolution stores the ceiling in value', () async {
+      final controller = VideoPlayerController.networkUrl(_localhostUri);
+      addTearDown(controller.dispose);
+      await controller.initialize();
+
+      await controller.setMaxResolution(1920, 1080);
+      expect(controller.value.maxResolution, const Size(1920, 1080));
+    });
+
+    test('setVideoDecoder stores the forced decoder and reverts to null', () async {
+      final controller = VideoPlayerController.networkUrl(_localhostUri);
+      addTearDown(controller.dispose);
+      await controller.initialize();
+
+      await controller.setVideoDecoder('c2.android.avc.decoder');
+      expect(controller.value.forcedDecoderName, 'c2.android.avc.decoder');
+
+      await controller.setVideoDecoder(null);
+      expect(controller.value.forcedDecoderName, isNull);
+    });
+  });
 
   testWidgets('update texture', (WidgetTester tester) async {
     final controller = FakeController();
@@ -1030,13 +1124,11 @@ void main() {
         }
 
         expect(isSorted, false, reason: 'Expected captions to be unsorted');
-        expect(captions.map((Caption c) => c.text).toList(), <String>[
-          'one',
-          'two',
-          'three',
-          'five',
-          'four',
-        ], reason: 'Captions should be in original unsorted order');
+        expect(
+          captions.map((Caption c) => c.text).toList(),
+          <String>['one', 'two', 'three', 'five', 'four'],
+          reason: 'Captions should be in original unsorted order',
+        );
       });
 
       test('works when seeking, includes all captions', () async {
@@ -1671,7 +1763,17 @@ void main() {
           'playbackSpeed: 1.5, '
           'errorDescription: null, '
           'isCompleted: false, '
-          'preventsDisplaySleepDuringVideoPlayback: true),',
+          'isPipActive: false, '
+          'isPlayingInBackground: false, '
+          'isAutoEnterPipEnabled: false, '
+          'pipSize: null, '
+          'currentQuality: null, '
+          'decoderName: null, '
+          'isDecoderHardwareAccelerated: null, '
+          'forcedDecoderName: null, '
+          'maxBitrate: null, '
+          'maxResolution: null, '
+          'preventsDisplaySleepDuringVideoPlayback: true)',
         );
       });
 
@@ -1925,6 +2027,9 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   int nextPlayerId = 0;
   final Map<int, Duration> _positions = <int, Duration>{};
   final Map<int, VideoPlayerWebOptions> webOptions = <int, VideoPlayerWebOptions>{};
+  int cacheMaxSize = 0;
+  int cacheSize = 0;
+  bool cacheEnabled = false;
 
   @override
   Future<int?> create(DataSource dataSource) async {
@@ -1971,6 +2076,51 @@ class FakeVideoPlayerPlatform extends VideoPlayerPlatform {
   @override
   Future<void> dispose(int playerId) async {
     calls.add('dispose');
+  }
+
+  @override
+  Future<void> setMaxBitrate(int playerId, int maxBitrateBps) async {
+    calls.add('setMaxBitrate');
+  }
+
+  @override
+  Future<void> setMaxResolution(int playerId, int width, int height) async {
+    calls.add('setMaxResolution');
+  }
+
+  @override
+  Future<void> setVideoDecoder(int playerId, String? decoderName) async {
+    calls.add('setVideoDecoder');
+  }
+
+  @override
+  Future<void> setCacheMaxSize(int maxSizeBytes) async {
+    calls.add('setCacheMaxSize');
+    cacheMaxSize = maxSizeBytes;
+  }
+
+  @override
+  Future<void> clearCache() async {
+    calls.add('clearCache');
+    cacheSize = 0;
+  }
+
+  @override
+  Future<int> getCacheSize() async {
+    calls.add('getCacheSize');
+    return cacheSize;
+  }
+
+  @override
+  Future<bool> isCacheEnabled() async {
+    calls.add('isCacheEnabled');
+    return cacheEnabled;
+  }
+
+  @override
+  Future<void> setCacheEnabled(bool enabled) async {
+    calls.add('setCacheEnabled');
+    cacheEnabled = enabled;
   }
 
   @override

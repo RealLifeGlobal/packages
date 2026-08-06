@@ -29,6 +29,12 @@ NS_ASSUME_NONNULL_BEGIN
 - (void)videoPlayerDidUpdateBufferRegions:(NSArray<NSArray<NSNumber *> *> *)regions;
 /// Called when the player starts or stops playing.
 - (void)videoPlayerDidSetPlaying:(BOOL)playing;
+/// Called when PiP state changes.
+- (void)videoPlayerDidChangePipState:(BOOL)isPipActive;
+/// Called when the video quality changes (ABR switch).
+- (void)videoPlayerDidChangeQualityWithWidth:(NSInteger)width
+                                      height:(NSInteger)height
+                                     bitrate:(NSInteger)bitrate;
 /// Called when the video player has been disposed on the Dart side.
 - (void)videoPlayerWasDisposed;
 @end

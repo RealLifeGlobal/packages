@@ -248,8 +248,14 @@ final class StubFVPAVFactory: NSObject, FVPAVFactory {
 
 final class StubFVPDisplayLink: NSObject, FVPDisplayLink {
   var running: Bool = false
+  private(set) var invalidated = false
   var duration: CFTimeInterval {
     return 1.0 / 60.0
+  }
+
+  func invalidate() {
+    running = false
+    invalidated = true
   }
 }
 

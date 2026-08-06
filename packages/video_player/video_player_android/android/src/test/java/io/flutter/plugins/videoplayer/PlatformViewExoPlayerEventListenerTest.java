@@ -37,12 +37,12 @@ public final class PlatformViewExoPlayerEventListenerTest {
 
   @Before
   public void setUp() {
-    eventListener = new PlatformViewExoPlayerEventListener(mockExoPlayer, mockCallbacks);
+    eventListener = new PlatformViewExoPlayerEventListener(mockExoPlayer, mockCallbacks, 3);
   }
 
   @Test
   public void onPlaybackStateChangedReadySendInitialized() {
-    eventListener = new PlatformViewExoPlayerEventListener(mockExoPlayer, mockCallbacks);
+    eventListener = new PlatformViewExoPlayerEventListener(mockExoPlayer, mockCallbacks, 3);
 
     Format format = new Format.Builder().setWidth(800).setHeight(400).build();
     when(mockExoPlayer.getVideoFormat()).thenReturn(format);
@@ -54,7 +54,7 @@ public final class PlatformViewExoPlayerEventListenerTest {
 
   @Test
   public void onPlaybackStateChangedReadyInPortraitMode90DegreesSwapsWidthAndHeight() {
-    eventListener = new PlatformViewExoPlayerEventListener(mockExoPlayer, mockCallbacks);
+    eventListener = new PlatformViewExoPlayerEventListener(mockExoPlayer, mockCallbacks, 3);
 
     Format format =
         new Format.Builder().setWidth(800).setHeight(400).setRotationDegrees(90).build();
@@ -67,7 +67,7 @@ public final class PlatformViewExoPlayerEventListenerTest {
 
   @Test
   public void onPlaybackStateChangedReadyInPortraitMode270DegreesSwapsWidthAndHeight() {
-    eventListener = new PlatformViewExoPlayerEventListener(mockExoPlayer, mockCallbacks);
+    eventListener = new PlatformViewExoPlayerEventListener(mockExoPlayer, mockCallbacks, 3);
 
     Format format =
         new Format.Builder().setWidth(800).setHeight(400).setRotationDegrees(270).build();

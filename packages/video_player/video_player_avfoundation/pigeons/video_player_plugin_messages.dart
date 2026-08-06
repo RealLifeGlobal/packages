@@ -35,6 +35,26 @@ class TexturePlayerIds {
   final int textureId;
 }
 
+/// Metadata shown on the lock screen / Control Center while background
+/// playback is enabled for a player.
+class PlatformMediaInfo {
+  PlatformMediaInfo({required this.title});
+  String title;
+  String? artist;
+  String? artworkUrl;
+  int? durationMs;
+
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip backward" button. When null, the platform falls back to a default
+  /// (15s) chosen to match the in-app rewind control.
+  int? skipBackwardIntervalMs;
+
+  /// Interval (in milliseconds) used by the lock-screen / Control Center
+  /// "skip forward" button. When null, the platform falls back to a default
+  /// (30s) chosen to match the in-app fast-forward control.
+  int? skipForwardIntervalMs;
+}
+
 @HostApi()
 abstract class AVFoundationVideoPlayerApi {
   void initialize();
@@ -49,4 +69,35 @@ abstract class AVFoundationVideoPlayerApi {
   void setMixWithOthers(bool mixWithOthers);
   @SwiftFunction('fileURLForAsset(name:package:)')
   String? getAssetUrl(String asset, String? package);
+
+  // Picture-in-Picture control. Keyed by player ID and delegated to the
+  // matching player instance.
+  @SwiftFunction('isPipSupported()')
+  bool isPipSupported();
+  @SwiftFunction('enterPip(playerId:)')
+  void enterPip(int playerId);
+  @SwiftFunction('exitPip(playerId:)')
+  void exitPip(int playerId);
+  @SwiftFunction('isPipActive(playerId:)')
+  bool isPipActive(int playerId);
+  @SwiftFunction('setAutoPip(playerId:enabled:)')
+  void setAutoPip(int playerId, bool enabled);
+
+  // Background playback control, keyed by player ID.
+  @SwiftFunction('enableBackgroundPlayback(playerId:mediaInfo:)')
+  void enableBackgroundPlayback(int playerId, PlatformMediaInfo? mediaInfo);
+  @SwiftFunction('disableBackgroundPlayback(playerId:)')
+  void disableBackgroundPlayback(int playerId);
+
+  // Cache control methods (no-ops on iOS until a future HLS cache phase).
+  @SwiftFunction('setCacheMaxSize(_:)')
+  void setCacheMaxSize(int maxSizeBytes);
+  @SwiftFunction('clearCache()')
+  void clearCache();
+  @SwiftFunction('getCacheSize()')
+  int getCacheSize();
+  @SwiftFunction('isCacheEnabled()')
+  bool isCacheEnabled();
+  @SwiftFunction('setCacheEnabled(_:)')
+  void setCacheEnabled(bool enabled);
 }

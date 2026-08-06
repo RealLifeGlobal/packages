@@ -22,6 +22,7 @@ import io.flutter.plugin.platform.PlatformView;
  */
 public final class PlatformVideoView implements PlatformView {
   @NonNull private final SurfaceView surfaceView;
+  @NonNull private final ExoPlayer exoPlayer;
 
   /**
    * Constructs a new PlatformVideoView.
@@ -32,6 +33,7 @@ public final class PlatformVideoView implements PlatformView {
   @OptIn(markerClass = UnstableApi.class)
   public PlatformVideoView(@NonNull Context context, @NonNull ExoPlayer exoPlayer) {
     this.surfaceView = new VideoSurfaceView(context, exoPlayer);
+    this.exoPlayer = exoPlayer;
 
     setupSurfaceWithCallback(exoPlayer);
 
@@ -118,8 +120,14 @@ public final class PlatformVideoView implements PlatformView {
   }
 
   /** Disposes of the resources used by this PlatformView. */
+  @OptIn(markerClass = UnstableApi.class)
   @Override
   public void dispose() {
+    if (Build.VERSION.SDK_INT == Build.VERSION_CODES.P) {
+      exoPlayer.setVideoSurface(null);
+    } else {
+      exoPlayer.clearVideoSurfaceView(surfaceView);
+    }
     surfaceView.getHolder().getSurface().release();
   }
 }

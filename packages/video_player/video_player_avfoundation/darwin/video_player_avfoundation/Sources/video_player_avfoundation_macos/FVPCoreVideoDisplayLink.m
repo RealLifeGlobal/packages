@@ -55,19 +55,27 @@ static CVReturn DisplayLinkCallback(CVDisplayLinkRef displayLink, const CVTimeSt
 }
 
 - (void)dealloc {
-  CVDisplayLinkStop(_displayLink);
-  CVDisplayLinkRelease(_displayLink);
-  _displayLink = NULL;
+  [self invalidate];
+}
 
-  dispatch_source_cancel(_displayLinkSource);
+- (void)invalidate {
+  if (_displayLink) {
+    CVDisplayLinkStop(_displayLink);
+    CVDisplayLinkRelease(_displayLink);
+    _displayLink = NULL;
+  }
+  if (_displayLinkSource) {
+    dispatch_source_cancel(_displayLinkSource);
+    _displayLinkSource = nil;
+  }
 }
 
 - (BOOL)running {
-  return CVDisplayLinkIsRunning(self.displayLink);
+  return _displayLink != NULL && CVDisplayLinkIsRunning(self.displayLink);
 }
 
 - (void)setRunning:(BOOL)running {
-  if (self.running == running) {
+  if (!_displayLink || self.running == running) {
     return;
   }
   if (running) {
@@ -88,7 +96,8 @@ static CVReturn DisplayLinkCallback(CVDisplayLinkRef displayLink, const CVTimeSt
 
 - (CFTimeInterval)duration {
   CVTimeStamp timestamp = {.version = 0};
-  if (CVDisplayLinkGetCurrentTime(self.displayLink, &timestamp) != kCVReturnSuccess) {
+  if (!_displayLink ||
+      CVDisplayLinkGetCurrentTime(self.displayLink, &timestamp) != kCVReturnSuccess) {
     return 0;
   }
   return (CFTimeInterval)timestamp.videoRefreshPeriod / timestamp.videoTimeScale;

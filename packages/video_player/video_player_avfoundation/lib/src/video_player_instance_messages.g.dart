@@ -13,9 +13,9 @@ import 'package:flutter/services.dart';
 import 'package:meta/meta.dart' show immutable, protected, visibleForTesting;
 
 Object? _extractReplyValueOrThrow(
-  List<Object?>? replyList,
-  String channelName, {
-  required bool isNullValid,
+    List<Object?>? replyList,
+    String channelName, {
+    required bool isNullValid,
 }) {
   if (replyList == null) {
     throw PlatformException(
@@ -49,7 +49,8 @@ bool _deepEquals(Object? a, Object? b) {
   }
   if (a is List && b is List) {
     return a.length == b.length &&
-        a.indexed.every(((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]));
+        a.indexed
+            .every(((int, dynamic) item) => _deepEquals(item.$2, b[item.$1]));
   }
   if (a is Map && b is Map) {
     if (a.length != b.length) {
@@ -98,6 +99,7 @@ int _deepHash(Object? value) {
   return value.hashCode;
 }
 
+
 /// Raw audio track data from AVMediaSelectionOption (for HLS streams).
 class MediaSelectionAudioTrackData {
   MediaSelectionAudioTrackData({
@@ -119,12 +121,17 @@ class MediaSelectionAudioTrackData {
   String? commonMetadataTitle;
 
   List<Object?> _toList() {
-    return <Object?>[index, displayName, languageCode, isSelected, commonMetadataTitle];
+    return <Object?>[
+      index,
+      displayName,
+      languageCode,
+      isSelected,
+      commonMetadataTitle,
+    ];
   }
 
   Object encode() {
-    return _toList();
-  }
+    return _toList();  }
 
   static MediaSelectionAudioTrackData decode(Object result) {
     result as List<Object?>;
@@ -146,11 +153,68 @@ class MediaSelectionAudioTrackData {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(index, other.index) &&
-        _deepEquals(displayName, other.displayName) &&
-        _deepEquals(languageCode, other.languageCode) &&
-        _deepEquals(isSelected, other.isSelected) &&
-        _deepEquals(commonMetadataTitle, other.commonMetadataTitle);
+    return _deepEquals(index, other.index) && _deepEquals(displayName, other.displayName) && _deepEquals(languageCode, other.languageCode) && _deepEquals(isSelected, other.isSelected) && _deepEquals(commonMetadataTitle, other.commonMetadataTitle);
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
+}
+
+/// Represents a video quality variant (resolution/bitrate combination).
+class PlatformVideoQuality {
+  PlatformVideoQuality({
+    required this.width,
+    required this.height,
+    required this.bitrate,
+    this.codec,
+    required this.isSelected,
+  });
+
+  int width;
+
+  int height;
+
+  int bitrate;
+
+  String? codec;
+
+  bool isSelected;
+
+  List<Object?> _toList() {
+    return <Object?>[
+      width,
+      height,
+      bitrate,
+      codec,
+      isSelected,
+    ];
+  }
+
+  Object encode() {
+    return _toList();  }
+
+  static PlatformVideoQuality decode(Object result) {
+    result as List<Object?>;
+    return PlatformVideoQuality(
+      width: result[0]! as int,
+      height: result[1]! as int,
+      bitrate: result[2]! as int,
+      codec: result[3] as String?,
+      isSelected: result[4]! as bool,
+    );
+  }
+
+  @override
+  // ignore: avoid_equals_and_hash_code_on_mutable_classes
+  bool operator ==(Object other) {
+    if (other is! PlatformVideoQuality || other.runtimeType != runtimeType) {
+      return false;
+    }
+    if (identical(this, other)) {
+      return true;
+    }
+    return _deepEquals(width, other.width) && _deepEquals(height, other.height) && _deepEquals(bitrate, other.bitrate) && _deepEquals(codec, other.codec) && _deepEquals(isSelected, other.isSelected);
   }
 
   @override
@@ -188,12 +252,20 @@ class MediaSelectionVideoTrackData {
   bool isSelected;
 
   List<Object?> _toList() {
-    return <Object?>[variantIndex, label, bitrate, width, height, frameRate, codec, isSelected];
+    return <Object?>[
+      variantIndex,
+      label,
+      bitrate,
+      width,
+      height,
+      frameRate,
+      codec,
+      isSelected,
+    ];
   }
 
   Object encode() {
-    return _toList();
-  }
+    return _toList();  }
 
   static MediaSelectionVideoTrackData decode(Object result) {
     result as List<Object?>;
@@ -218,14 +290,7 @@ class MediaSelectionVideoTrackData {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(variantIndex, other.variantIndex) &&
-        _deepEquals(label, other.label) &&
-        _deepEquals(bitrate, other.bitrate) &&
-        _deepEquals(width, other.width) &&
-        _deepEquals(height, other.height) &&
-        _deepEquals(frameRate, other.frameRate) &&
-        _deepEquals(codec, other.codec) &&
-        _deepEquals(isSelected, other.isSelected);
+    return _deepEquals(variantIndex, other.variantIndex) && _deepEquals(label, other.label) && _deepEquals(bitrate, other.bitrate) && _deepEquals(width, other.width) && _deepEquals(height, other.height) && _deepEquals(frameRate, other.frameRate) && _deepEquals(codec, other.codec) && _deepEquals(isSelected, other.isSelected);
   }
 
   @override
@@ -260,12 +325,19 @@ class AssetVideoTrackData {
   bool isSelected;
 
   List<Object?> _toList() {
-    return <Object?>[trackId, label, width, height, frameRate, codec, isSelected];
+    return <Object?>[
+      trackId,
+      label,
+      width,
+      height,
+      frameRate,
+      codec,
+      isSelected,
+    ];
   }
 
   Object encode() {
-    return _toList();
-  }
+    return _toList();  }
 
   static AssetVideoTrackData decode(Object result) {
     result as List<Object?>;
@@ -289,13 +361,7 @@ class AssetVideoTrackData {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(trackId, other.trackId) &&
-        _deepEquals(label, other.label) &&
-        _deepEquals(width, other.width) &&
-        _deepEquals(height, other.height) &&
-        _deepEquals(frameRate, other.frameRate) &&
-        _deepEquals(codec, other.codec) &&
-        _deepEquals(isSelected, other.isSelected);
+    return _deepEquals(trackId, other.trackId) && _deepEquals(label, other.label) && _deepEquals(width, other.width) && _deepEquals(height, other.height) && _deepEquals(frameRate, other.frameRate) && _deepEquals(codec, other.codec) && _deepEquals(isSelected, other.isSelected);
   }
 
   @override
@@ -305,7 +371,10 @@ class AssetVideoTrackData {
 
 /// Container for video track data from iOS.
 class NativeVideoTrackData {
-  NativeVideoTrackData({this.assetTracks, this.mediaSelectionTracks});
+  NativeVideoTrackData({
+    this.assetTracks,
+    this.mediaSelectionTracks,
+  });
 
   /// Asset-based tracks (for regular videos)
   List<AssetVideoTrackData>? assetTracks;
@@ -314,12 +383,14 @@ class NativeVideoTrackData {
   List<MediaSelectionVideoTrackData>? mediaSelectionTracks;
 
   List<Object?> _toList() {
-    return <Object?>[assetTracks, mediaSelectionTracks];
+    return <Object?>[
+      assetTracks,
+      mediaSelectionTracks,
+    ];
   }
 
   Object encode() {
-    return _toList();
-  }
+    return _toList();  }
 
   static NativeVideoTrackData decode(Object result) {
     result as List<Object?>;
@@ -338,14 +409,14 @@ class NativeVideoTrackData {
     if (identical(this, other)) {
       return true;
     }
-    return _deepEquals(assetTracks, other.assetTracks) &&
-        _deepEquals(mediaSelectionTracks, other.mediaSelectionTracks);
+    return _deepEquals(assetTracks, other.assetTracks) && _deepEquals(mediaSelectionTracks, other.mediaSelectionTracks);
   }
 
   @override
   // ignore: avoid_equals_and_hash_code_on_mutable_classes
   int get hashCode => _deepHash(<Object?>[runtimeType, ..._toList()]);
 }
+
 
 class _PigeonCodec extends StandardMessageCodec {
   const _PigeonCodec();
@@ -354,17 +425,20 @@ class _PigeonCodec extends StandardMessageCodec {
     if (value is int) {
       buffer.putUint8(4);
       buffer.putInt64(value);
-    } else if (value is MediaSelectionAudioTrackData) {
+    }    else if (value is MediaSelectionAudioTrackData) {
       buffer.putUint8(129);
       writeValue(buffer, value.encode());
-    } else if (value is MediaSelectionVideoTrackData) {
+    }    else if (value is PlatformVideoQuality) {
       buffer.putUint8(130);
       writeValue(buffer, value.encode());
-    } else if (value is AssetVideoTrackData) {
+    }    else if (value is MediaSelectionVideoTrackData) {
       buffer.putUint8(131);
       writeValue(buffer, value.encode());
-    } else if (value is NativeVideoTrackData) {
+    }    else if (value is AssetVideoTrackData) {
       buffer.putUint8(132);
+      writeValue(buffer, value.encode());
+    }    else if (value is NativeVideoTrackData) {
+      buffer.putUint8(133);
       writeValue(buffer, value.encode());
     } else {
       super.writeValue(buffer, value);
@@ -377,10 +451,12 @@ class _PigeonCodec extends StandardMessageCodec {
       case 129:
         return MediaSelectionAudioTrackData.decode(readValue(buffer)!);
       case 130:
-        return MediaSelectionVideoTrackData.decode(readValue(buffer)!);
+        return PlatformVideoQuality.decode(readValue(buffer)!);
       case 131:
-        return AssetVideoTrackData.decode(readValue(buffer)!);
+        return MediaSelectionVideoTrackData.decode(readValue(buffer)!);
       case 132:
+        return AssetVideoTrackData.decode(readValue(buffer)!);
+      case 133:
         return NativeVideoTrackData.decode(readValue(buffer)!);
       default:
         return super.readValueOfType(type, buffer);
@@ -393,10 +469,8 @@ class VideoPlayerInstanceApi {
   /// available for dependency injection.  If it is left null, the default
   /// BinaryMessenger will be used which routes to the host platform.
   VideoPlayerInstanceApi({BinaryMessenger? binaryMessenger, String messageChannelSuffix = ''})
-    : pigeonVar_binaryMessenger = binaryMessenger,
-      pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty
-          ? '.$messageChannelSuffix'
-          : '';
+      : pigeonVar_binaryMessenger = binaryMessenger,
+        pigeonVar_messageChannelSuffix = messageChannelSuffix.isNotEmpty ? '.$messageChannelSuffix' : '';
   final BinaryMessenger? pigeonVar_binaryMessenger;
 
   static const MessageCodec<Object?> pigeonChannelCodec = _PigeonCodec();
@@ -404,8 +478,7 @@ class VideoPlayerInstanceApi {
   final String pigeonVar_messageChannelSuffix;
 
   Future<void> setLooping(bool looping) async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setLooping$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setLooping$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -414,12 +487,16 @@ class VideoPlayerInstanceApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[looping]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
   }
 
   Future<void> setVolume(double volume) async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setVolume$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setVolume$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -428,12 +505,16 @@ class VideoPlayerInstanceApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[volume]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
   }
 
   Future<void> setPlaybackSpeed(double speed) async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setPlaybackSpeed$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setPlaybackSpeed$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -442,12 +523,16 @@ class VideoPlayerInstanceApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[speed]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
   }
 
   Future<void> play() async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.play$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.play$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -456,12 +541,16 @@ class VideoPlayerInstanceApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
   }
 
   Future<int> getPosition() async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getPosition$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getPosition$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -471,16 +560,16 @@ class VideoPlayerInstanceApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-      pigeonVar_replyList,
-      pigeonVar_channelName,
-      isNullValid: false,
-    );
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: false,
+    )
+    ;
     return pigeonVar_replyValue! as int;
   }
 
   Future<void> seekTo(int position) async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.seekTo$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.seekTo$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -489,12 +578,16 @@ class VideoPlayerInstanceApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[position]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
   }
 
   Future<void> pause() async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.pause$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.pause$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -503,12 +596,16 @@ class VideoPlayerInstanceApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
   }
 
   Future<void> dispose() async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.dispose$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.dispose$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -517,12 +614,16 @@ class VideoPlayerInstanceApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
   }
 
   Future<List<MediaSelectionAudioTrackData>> getAudioTracks() async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getAudioTracks$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getAudioTracks$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -532,16 +633,16 @@ class VideoPlayerInstanceApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-      pigeonVar_replyList,
-      pigeonVar_channelName,
-      isNullValid: false,
-    );
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: false,
+    )
+    ;
     return (pigeonVar_replyValue! as List<Object?>).cast<MediaSelectionAudioTrackData>();
   }
 
   Future<void> selectAudioTrack(int trackIndex) async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.selectAudioTrack$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.selectAudioTrack$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -550,13 +651,16 @@ class VideoPlayerInstanceApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[trackIndex]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
   }
 
-  /// Gets the available video tracks for the video.
-  Future<NativeVideoTrackData> getVideoTracks() async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getVideoTracks$pigeonVar_messageChannelSuffix';
+  Future<List<PlatformVideoQuality>> getAvailableQualities() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getAvailableQualities$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -566,18 +670,93 @@ class VideoPlayerInstanceApi {
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
     final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
-      pigeonVar_replyList,
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: false,
+    )
+    ;
+    return (pigeonVar_replyValue! as List<Object?>).cast<PlatformVideoQuality>();
+  }
+
+  Future<PlatformVideoQuality?> getCurrentQuality() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getCurrentQuality$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
-      isNullValid: false,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
     );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+    return pigeonVar_replyValue as PlatformVideoQuality?;
+  }
+
+  Future<void> setMaxBitrate(int maxBitrateBps) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setMaxBitrate$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[maxBitrateBps]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
+
+  Future<void> setMaxResolution(int width, int height) async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.setMaxResolution$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[width, height]);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
+  }
+
+  /// Gets the available video tracks for the video.
+  Future<NativeVideoTrackData> getVideoTracks() async {
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.getVideoTracks$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channel = BasicMessageChannel<Object?>(
+      pigeonVar_channelName,
+      pigeonChannelCodec,
+      binaryMessenger: pigeonVar_binaryMessenger,
+    );
+    final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(null);
+    final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
+
+    final Object? pigeonVar_replyValue = _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: false,
+    )
+    ;
     return pigeonVar_replyValue! as NativeVideoTrackData;
   }
 
   /// Selects a video track by setting preferredPeakBitRate.
   /// Pass 0 to enable auto quality selection.
   Future<void> selectVideoTrack(int bitrate) async {
-    final pigeonVar_channelName =
-        'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.selectVideoTrack$pigeonVar_messageChannelSuffix';
+    final pigeonVar_channelName = 'dev.flutter.pigeon.video_player_avfoundation.VideoPlayerInstanceApi.selectVideoTrack$pigeonVar_messageChannelSuffix';
     final pigeonVar_channel = BasicMessageChannel<Object?>(
       pigeonVar_channelName,
       pigeonChannelCodec,
@@ -586,7 +765,12 @@ class VideoPlayerInstanceApi {
     final Future<Object?> pigeonVar_sendFuture = pigeonVar_channel.send(<Object?>[bitrate]);
     final pigeonVar_replyList = await pigeonVar_sendFuture as List<Object?>?;
 
-    _extractReplyValueOrThrow(pigeonVar_replyList, pigeonVar_channelName, isNullValid: true);
+    _extractReplyValueOrThrow(
+        pigeonVar_replyList,
+        pigeonVar_channelName,
+        isNullValid: true,
+    )
+    ;
   }
 
   Future<void> setPreventsDisplaySleepDuringVideoPlayback(

@@ -7,6 +7,9 @@ package io.flutter.plugins.videoplayer;
 import static androidx.media3.common.Player.REPEAT_MODE_ALL;
 import static androidx.media3.common.Player.REPEAT_MODE_OFF;
 
+import android.media.MediaCodecInfo;
+import android.media.MediaCodecList;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import androidx.annotation.NonNull;
@@ -21,9 +24,13 @@ import androidx.media3.common.TrackSelectionOverride;
 import androidx.media3.common.Tracks;
 import androidx.media3.common.util.UnstableApi;
 import androidx.media3.exoplayer.ExoPlayer;
+import androidx.media3.exoplayer.analytics.AnalyticsListener;
+import androidx.media3.exoplayer.mediacodec.MediaCodecSelector;
+import androidx.media3.exoplayer.source.MediaLoadData;
 import androidx.media3.exoplayer.trackselection.DefaultTrackSelector;
 import io.flutter.view.TextureRegistry.SurfaceProducer;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -37,8 +44,32 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @Nullable private DisposeHandler disposeHandler;
   @Nullable private ExoPlayerEventListener exoPlayerEventListener;
   @NonNull protected ExoPlayer exoPlayer;
+
+  // Set to true once dispose() has been called. Public API methods that touch
+  // exoPlayer early-return when released, because a Flutter-side platform message
+  // (pause, seekTo, etc.) can arrive on the main thread after the Activity — and
+  // therefore the ExoPlayer's playback looper — has been torn down. Without this
+  // guard, ExoPlayerImpl posts to a dead handler and logs an IllegalStateException.
+  private volatile boolean released;
+
+  protected boolean isReleased() {
+    return released;
+  }
+
   // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
   @UnstableApi @Nullable protected DefaultTrackSelector trackSelector;
+
+  // Stored for ExoPlayer rebuild when switching decoders.
+  @NonNull protected final MediaItem mediaItem;
+  @NonNull protected final VideoPlayerOptions options;
+
+  // Stored listener references for removal during ExoPlayer rebuild.
+  @NonNull private AnalyticsListener analyticsListener;
+
+  // Decoder tracking.
+  @Nullable protected String currentVideoDecoderName;
+  @Nullable protected String forcedDecoderName;
+  @Nullable private String lastKnownVideoMimeType;
 
   private final Handler mainHandler = new Handler(Looper.getMainLooper());
   private boolean isDisposed = false;
@@ -74,6 +105,9 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
       @NonNull ExoPlayerProvider exoPlayerProvider) {
     this.videoPlayerEvents = events;
     this.surfaceProducer = surfaceProducer;
+    this.mediaItem = mediaItem;
+    this.options = options;
+    this.maxPlayerRecoveryAttempts = options.maxPlayerRecoveryAttempts;
     exoPlayer = exoPlayerProvider.get();
 
     // Try to get the track selector from the ExoPlayer if it was built with one
@@ -84,13 +118,17 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
     exoPlayer.setMediaItem(mediaItem);
     exoPlayer.prepare();
     exoPlayerEventListener = createExoPlayerEventListener(exoPlayer, surfaceProducer);
+    analyticsListener = createAnalyticsListener();
     exoPlayer.addListener(exoPlayerEventListener);
+    exoPlayer.addAnalyticsListener(analyticsListener);
     setAudioAttributes(exoPlayer, options.mixWithOthers);
   }
 
   public void setDisposeHandler(@Nullable DisposeHandler handler) {
     disposeHandler = handler;
   }
+
+  protected int maxPlayerRecoveryAttempts = 3;
 
   @NonNull
   protected abstract ExoPlayerEventListener createExoPlayerEventListener(
@@ -126,27 +164,32 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
 
   @Override
   public void play() {
+    if (released) return;
     exoPlayer.play();
   }
 
   @Override
   public void pause() {
+    if (released) return;
     exoPlayer.pause();
   }
 
   @Override
   public void setLooping(boolean looping) {
+    if (released) return;
     exoPlayer.setRepeatMode(looping ? REPEAT_MODE_ALL : REPEAT_MODE_OFF);
   }
 
   @Override
   public void setVolume(double volume) {
+    if (released) return;
     float bracketedValue = (float) Math.max(0.0, Math.min(1.0, volume));
     exoPlayer.setVolume(bracketedValue);
   }
 
   @Override
   public void setPlaybackSpeed(double speed) {
+    if (released) return;
     // We do not need to consider pitch and skipSilence for now as we do not handle them and
     // therefore never diverge from the default values.
     final PlaybackParameters playbackParameters = new PlaybackParameters((float) speed);
@@ -156,16 +199,19 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
 
   @Override
   public long getCurrentPosition() {
+    if (released) return 0L;
     return exoPlayer.getCurrentPosition();
   }
 
   @Override
   public long getBufferedPosition() {
+    if (released) return 0L;
     return exoPlayer.getBufferedPosition();
   }
 
   @Override
   public void seekTo(long position) {
+    if (released) return;
     exoPlayer.seekTo(position);
   }
 
@@ -179,6 +225,9 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @Override
   public @NonNull NativeAudioTrackData getAudioTracks() {
     List<ExoPlayerAudioTrackData> audioTracks = new ArrayList<>();
+    if (released) {
+      return new NativeAudioTrackData(audioTracks);
+    }
 
     // Get the current tracks from ExoPlayer
     Tracks tracks = exoPlayer.getCurrentTracks();
@@ -217,6 +266,7 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   @UnstableApi
   @Override
   public void selectAudioTrack(long groupIndex, long trackIndex) {
+    if (released) return;
     if (trackSelector == null) {
       throw new IllegalStateException("Cannot select audio track: track selector is null");
     }
@@ -267,6 +317,35 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
   @UnstableApi
   @Override
+  public @NonNull List<PlatformVideoQuality> getAvailableQualities() {
+    List<PlatformVideoQuality> qualities = new ArrayList<>();
+    if (released) return qualities;
+    Tracks tracks = exoPlayer.getCurrentTracks();
+
+    for (int groupIndex = 0; groupIndex < tracks.getGroups().size(); groupIndex++) {
+      Tracks.Group group = tracks.getGroups().get(groupIndex);
+      if (group.getType() == C.TRACK_TYPE_VIDEO) {
+        for (int trackIndex = 0; trackIndex < group.length; trackIndex++) {
+          Format format = group.getTrackFormat(trackIndex);
+          boolean isSelected = group.isTrackSelected(trackIndex);
+
+          PlatformVideoQuality quality =
+              new PlatformVideoQuality(
+                  format.width > 0 ? (long) format.width : 0L,
+                  format.height > 0 ? (long) format.height : 0L,
+                  format.bitrate != Format.NO_VALUE ? (long) format.bitrate : 0L,
+                  format.codecs,
+                  isSelected);
+          qualities.add(quality);
+        }
+      }
+    }
+    return qualities;
+  }
+
+  // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
+  @UnstableApi
+  @Override
   public @NonNull NativeVideoTrackData getVideoTracks() {
     List<ExoPlayerVideoTrackData> videoTracks = new ArrayList<>();
 
@@ -301,6 +380,266 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
       }
     }
     return new NativeVideoTrackData(videoTracks);
+  }
+
+  // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
+  @UnstableApi
+  @Override
+  public @Nullable PlatformVideoQuality getCurrentQuality() {
+    if (released) return null;
+    Format format = exoPlayer.getVideoFormat();
+    if (format == null) {
+      return null;
+    }
+    PlatformVideoQuality quality =
+        new PlatformVideoQuality(
+            format.width > 0 ? (long) format.width : 0L,
+            format.height > 0 ? (long) format.height : 0L,
+            format.bitrate != Format.NO_VALUE ? (long) format.bitrate : 0L,
+            format.codecs,
+            /* isSelected= */ true);
+    return quality;
+  }
+
+  // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
+  @UnstableApi
+  @Override
+  public void setMaxBitrate(long maxBitrateBps) {
+    if (released) return;
+    if (trackSelector == null) {
+      return;
+    }
+    trackSelector.setParameters(
+        trackSelector.buildUponParameters().setMaxVideoBitrate((int) maxBitrateBps).build());
+  }
+
+  // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
+  @UnstableApi
+  @Override
+  public void setMaxResolution(long width, long height) {
+    if (released) return;
+    if (trackSelector == null) {
+      return;
+    }
+    trackSelector.setParameters(
+        trackSelector
+            .buildUponParameters()
+            .setMaxVideoSize((int) width, (int) height)
+            .build());
+  }
+
+  @UnstableApi
+  private AnalyticsListener createAnalyticsListener() {
+    return new AnalyticsListener() {
+      private int lastReportedWidth = -1;
+      private int lastReportedHeight = -1;
+      private int lastReportedBitrate = -1;
+
+      @Override
+      public void onDownstreamFormatChanged(
+          @NonNull EventTime eventTime, @NonNull MediaLoadData mediaLoadData) {
+        if (mediaLoadData.trackFormat == null) {
+          return;
+        }
+        // Accept TRACK_TYPE_VIDEO (demuxed) or TRACK_TYPE_DEFAULT (muxed HLS)
+        // when the format has video dimensions.
+        int trackType = mediaLoadData.trackType;
+        Format format = mediaLoadData.trackFormat;
+        boolean isVideoFormat = (trackType == C.TRACK_TYPE_VIDEO)
+            || (trackType == C.TRACK_TYPE_DEFAULT && format.width > 0 && format.height > 0);
+        if (!isVideoFormat) {
+          return;
+        }
+        int width = format.width > 0 ? format.width : 0;
+        int height = format.height > 0 ? format.height : 0;
+        int bitrate = format.bitrate != Format.NO_VALUE ? format.bitrate : 0;
+        // Skip duplicate events
+        if (width == lastReportedWidth && height == lastReportedHeight
+            && bitrate == lastReportedBitrate) {
+          return;
+        }
+        lastReportedWidth = width;
+        lastReportedHeight = height;
+        lastReportedBitrate = bitrate;
+        videoPlayerEvents.onVideoQualityChanged(width, height, bitrate, format.codecs);
+      }
+
+      @Override
+      public void onVideoDecoderInitialized(
+          @NonNull EventTime eventTime,
+          @NonNull String decoderName,
+          long initializedTimestampMs,
+          long initializationDurationMs) {
+        currentVideoDecoderName = decoderName;
+        boolean isHw = isHardwareDecoder(decoderName);
+        videoPlayerEvents.onDecoderChanged(decoderName, isHw);
+      }
+    };
+  }
+
+  // Decoder selection methods
+
+  /**
+   * Returns whether a decoder name indicates hardware acceleration.
+   * On API 29+ uses MediaCodecInfo; below that uses name heuristics.
+   */
+  static boolean isHardwareDecoder(@NonNull String decoderName) {
+    // Software decoder name prefixes
+    return !decoderName.startsWith("OMX.google.")
+        && !decoderName.startsWith("c2.android.")
+        && !decoderName.startsWith("c2.google.");
+  }
+
+  static boolean isSoftwareDecoder(@NonNull String decoderName) {
+    return !isHardwareDecoder(decoderName);
+  }
+
+  @Override
+  public @NonNull List<PlatformVideoDecoder> getAvailableDecoders() {
+    List<PlatformVideoDecoder> decoders = new ArrayList<>();
+    if (released) return decoders;
+    Format videoFormat = exoPlayer.getVideoFormat();
+    String mimeType = null;
+    if (videoFormat != null && videoFormat.sampleMimeType != null) {
+      mimeType = videoFormat.sampleMimeType;
+      lastKnownVideoMimeType = mimeType;
+    } else {
+      mimeType = lastKnownVideoMimeType;
+    }
+    if (mimeType == null) {
+      return decoders;
+    }
+
+    MediaCodecList codecList = new MediaCodecList(MediaCodecList.ALL_CODECS);
+    for (MediaCodecInfo codecInfo : codecList.getCodecInfos()) {
+      if (codecInfo.isEncoder()) {
+        continue;
+      }
+      String[] supportedTypes = codecInfo.getSupportedTypes();
+      for (String type : supportedTypes) {
+        if (type.equalsIgnoreCase(mimeType)) {
+          String name = codecInfo.getName();
+          boolean isHw;
+          boolean isSw;
+          if (Build.VERSION.SDK_INT >= 29) {
+            isHw = codecInfo.isHardwareAccelerated();
+            isSw = codecInfo.isSoftwareOnly();
+          } else {
+            isHw = isHardwareDecoder(name);
+            isSw = isSoftwareDecoder(name);
+          }
+          boolean isSelected = name.equals(currentVideoDecoderName);
+          decoders.add(new PlatformVideoDecoder(name, mimeType, isHw, isSw, isSelected));
+          break;
+        }
+      }
+    }
+    return decoders;
+  }
+
+  @Override
+  public @Nullable String getCurrentDecoderName() {
+    return currentVideoDecoderName;
+  }
+
+  @UnstableApi
+  @Override
+  public void setVideoDecoder(@Nullable String decoderName) {
+    if (released) return;
+    this.forcedDecoderName = decoderName;
+
+    // Capture current playback state before touching the player.
+    long position = exoPlayer.getCurrentPosition();
+    boolean wasPlaying = exoPlayer.isPlaying();
+    boolean isLooping = exoPlayer.getRepeatMode() == REPEAT_MODE_ALL;
+    float volume = exoPlayer.getVolume();
+    float speed = exoPlayer.getPlaybackParameters().speed;
+
+    // Remove all listeners BEFORE stopping/releasing to prevent stale
+    // callbacks (errors, state changes) from reaching Dart during teardown.
+    exoPlayer.removeListener(exoPlayerEventListener);
+    exoPlayer.removeAnalyticsListener(analyticsListener);
+
+    // Release old player.
+    exoPlayer.stop();
+    exoPlayer.release();
+
+    // Build new player with forced decoder.
+    ExoPlayerProvider provider = createExoPlayerProvider(decoderName);
+    exoPlayer = provider.get();
+
+    // Recapture track selector.
+    if (exoPlayer.getTrackSelector() instanceof DefaultTrackSelector) {
+      trackSelector = (DefaultTrackSelector) exoPlayer.getTrackSelector();
+    } else {
+      trackSelector = null;
+    }
+
+    // Restore state.
+    exoPlayer.setMediaItem(mediaItem);
+    exoPlayer.prepare();
+    exoPlayerEventListener = createExoPlayerEventListener(exoPlayer, surfaceProducer);
+    analyticsListener = createAnalyticsListener();
+    exoPlayer.addListener(exoPlayerEventListener);
+    exoPlayer.addAnalyticsListener(analyticsListener);
+    setAudioAttributes(exoPlayer, options.mixWithOthers);
+    exoPlayer.setRepeatMode(isLooping ? REPEAT_MODE_ALL : REPEAT_MODE_OFF);
+    exoPlayer.setVolume(volume);
+    exoPlayer.setPlaybackParameters(new PlaybackParameters(speed));
+    exoPlayer.seekTo(position);
+
+    // Re-attach surface for texture-based players (handled by subclass).
+    onPlayerRebuilt(exoPlayer);
+
+    if (wasPlaying) {
+      exoPlayer.play();
+    }
+  }
+
+  /**
+   * Called after the ExoPlayer is rebuilt (e.g. during decoder switch).
+   * Subclasses can override to re-attach surfaces.
+   */
+  protected void onPlayerRebuilt(@NonNull ExoPlayer newPlayer) {
+    // Default: no-op. TextureVideoPlayer overrides to re-attach surface.
+  }
+
+  /**
+   * Creates an ExoPlayerProvider that optionally forces a specific decoder.
+   * Subclasses must implement this to build ExoPlayer with the right context.
+   */
+  @NonNull
+  protected abstract ExoPlayerProvider createExoPlayerProvider(@Nullable String forcedDecoderName);
+
+  /**
+   * Creates a MediaCodecSelector that prioritizes the given decoder name.
+   * If forcedDecoderName is null, returns the default selector.
+   */
+  @UnstableApi
+  @NonNull
+  public static MediaCodecSelector createSelectorForDecoder(@Nullable String forcedDecoderName) {
+    if (forcedDecoderName == null) {
+      return MediaCodecSelector.DEFAULT;
+    }
+    return (mimeType, requiresSecureDecoder, requiresTunnelingDecoder) -> {
+      List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> defaultList =
+          MediaCodecSelector.DEFAULT.getDecoderInfos(
+              mimeType, requiresSecureDecoder, requiresTunnelingDecoder);
+      // Put the forced decoder first, keep others as fallback
+      List<androidx.media3.exoplayer.mediacodec.MediaCodecInfo> reordered = new ArrayList<>();
+      for (androidx.media3.exoplayer.mediacodec.MediaCodecInfo info : defaultList) {
+        if (info.name.equals(forcedDecoderName)) {
+          reordered.add(0, info);
+        } else {
+          reordered.add(info);
+        }
+      }
+      return Collections.unmodifiableList(reordered);
+    };
+  }
+
+  public void notifyPipStateChanged(boolean isInPipMode, boolean wasDismissed, int widthDp, int heightDp) {
+    videoPlayerEvents.onPipStateChanged(isInPipMode, wasDismissed, widthDp, heightDp);
   }
 
   // TODO: Migrate to stable API, see https://github.com/flutter/flutter/issues/147039.
@@ -450,6 +789,8 @@ public abstract class VideoPlayer implements VideoPlayerInstanceApi {
   }
 
   public void dispose() {
+    if (released) return;
+    released = true;
     isDisposed = true;
     mainHandler.removeCallbacksAndMessages(null);
     if (disposeHandler != null) {
